@@ -1,0 +1,40 @@
+# Render Blueprint for SCRS Platform
+# This file allows you to deploy all services at once
+
+services:
+  # ML Engine (Python/FastAPI)
+  - type: web
+    name: scrs-ml-engine
+    env: python
+    buildCommand: pip install -r requirements.txt && python scripts/init_data.py && python scripts/generate_students.py && python scripts/train_models.py
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: CORS_ORIGIN
+        value: *  # Update after getting frontend URL
+      - key: PYTHON_VERSION
+        value: 3.10.0
+
+  # API Server (Node.js/Express)
+  - type: web
+    name: scrs-api-server
+    env: node
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        sync: false  # Set manually in dashboard
+      - key: JWT_SECRET
+        sync: false  # Set manually in dashboard
+      - key: ML_ENGINE_URL
+        fromService:
+          type: web
+          name: scrs-ml-engine
+          property: host
+      - key: FRONTEND_URL
+        sync: false  # Set after deploying frontend
+
+

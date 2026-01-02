@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Rounded square background -->
+  <rect x="8" y="8" width="48" height="48" rx="12" fill="#0f172a"/>
+  <!-- Lightning bolt icon -->
+  <path d="M32 20L20 36H28V44L44 28H36V20H32Z" fill="white" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+
