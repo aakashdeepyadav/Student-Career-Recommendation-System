@@ -7,7 +7,6 @@ import numpy as np
 import joblib
 from sklearn.decomposition import PCA
 from umap import UMAP
-from sentence_transformers import SentenceTransformer
 from typing import List, Dict, Tuple, Optional
 import os
 from pathlib import Path
@@ -70,6 +69,8 @@ class CareerEmbedder:
     """
     
     def __init__(self):
+        from sentence_transformers import SentenceTransformer
+
         # Use a lightweight model for faster inference
         self.model = SentenceTransformer('all-MiniLM-L6-v2')
         self.embedding_dim = 384  # MiniLM output dimension

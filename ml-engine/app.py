@@ -84,9 +84,14 @@ if len(students_data) > 0:
             else:
                 print("[INFO] No existing model found - training new model...")
                 clusterer.fit(student_vectors)
-            
-            embedding_reducer.fit_pca_2d(student_vectors)
-            embedding_reducer.fit_umap_3d(student_vectors)
+
+            # Do not refit reducers on every boot; load existing reducers when available.
+            if embedding_reducer.pca_2d is None:
+                print("[INFO] PCA model missing - fitting PCA 2D")
+                embedding_reducer.fit_pca_2d(student_vectors)
+            if embedding_reducer.umap_3d is None:
+                print("[INFO] UMAP model missing - fitting UMAP 3D")
+                embedding_reducer.fit_umap_3d(student_vectors)
             print("[OK] All models loaded and ready")
         except Exception as e:
             print(f"⚠ Warning: Could not fit models: {e}")
