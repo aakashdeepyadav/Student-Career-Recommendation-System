@@ -22,7 +22,7 @@ from sklearn.metrics import (
 from core.riasec_scorer import RIASECScorer
 from core.profile_processor import ProfileProcessor
 from core.clustering import StudentClusterer
-from core.embeddings import EmbeddingReducer, CareerEmbedder
+from core.embeddings import EmbeddingReducer
 from core.similarity import SimilarityEngine
 from core.data_loader import DataLoader
 from core.metrics import calculate_dunn_index, create_riasec_ground_truth, calculate_external_metrics
@@ -47,15 +47,18 @@ profile_processor = ProfileProcessor()
 # Use fixed KMeans++ for deterministic model selection.
 clusterer = StudentClusterer(algorithm='kmeans_plus')
 embedding_reducer = EmbeddingReducer()
-career_embedder = CareerEmbedder()
 similarity_engine = SimilarityEngine()
 
 # Load careers
 careers_data = data_loader.load_careers()
-# Generate embeddings for careers if not present
+# Avoid heavyweight runtime embedding generation at startup so the web service
+# binds to $PORT quickly on platforms like Render.
 for career in careers_data:
     if 'embedding' not in career:
-        career['embedding'] = career_embedder.embed_career(career).tolist()
+        riasec = np.array(career.get('riasec', [0, 0, 0, 0, 0, 0]), dtype=float)
+        skills = np.array(career.get('skills_vector', [0] * 10), dtype=float)
+        subjects = np.array([0.0, 0.0, 0.0, 0.0], dtype=float)
+        career['embedding'] = np.concatenate([riasec, skills, subjects]).tolist()
 
 # Load students and fit models if available
 students_data = data_loader.load_students()
