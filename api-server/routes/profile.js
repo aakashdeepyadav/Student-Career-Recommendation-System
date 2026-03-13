@@ -2,7 +2,10 @@ const express = require('express');
 const axios = require('axios');
 
 const router = express.Router();
-const ML_ENGINE_URL = process.env.ML_ENGINE_URL || 'http://localhost:8001';
+const rawMlEngineUrl = process.env.ML_ENGINE_URL || 'http://localhost:8001';
+const ML_ENGINE_URL = /^https?:\/\//i.test(rawMlEngineUrl)
+  ? rawMlEngineUrl
+  : `http://${rawMlEngineUrl}`;
 
 const SKILL_KEYS = [
   'programming',
