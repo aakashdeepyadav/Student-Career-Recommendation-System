@@ -52,7 +52,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Routes
 app.use('/api/assessment', assessmentRoutes);
 
-// Health check
+// Root + health check
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'SCRS API Server' });
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'SCRS API Server' });
 });
