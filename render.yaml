@@ -13,7 +13,7 @@ services:
       - key: PORT
         value: 10000
       - key: CORS_ORIGIN
-        value: "*"  # Update after getting frontend URL
+        value: "*" # Update after getting frontend URL
       - key: PYTHON_VERSION
         value: 3.10.0
 
@@ -33,6 +33,5 @@ services:
           name: scrs-ml-engine
           property: hostport
       - key: FRONTEND_URL
-        sync: false  # Set after deploying frontend
-
+        sync: false # Set after deploying frontend
 
