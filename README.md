@@ -1,123 +1,105 @@
 # Student Career Recommendation System (SCRS)
 
-A full-stack ML-powered career recommendation system using unsupervised learning (dual-algorithm clustering: KMeans++ and KMeans Random) to match students with ideal career paths based on RIASEC personality assessment, skills, and subject preferences.
+An end-to-end career guidance platform that combines RIASEC personality signals, skill profiling, and unsupervised machine learning to recommend suitable careers for students.
 
-## 🏗️ Project Structure
+## Why This Project
+
+- Uses a practical full-stack architecture (React + Node.js + FastAPI)
+- Applies unsupervised ML (KMeans++, KMeans Random, PCA, UMAP)
+- Produces explainable outputs: cluster membership, top recommendations, and skill-gap insights
+- Can be deployed as separate services for frontend, API, and ML engine
+
+## Project Structure
 
 ```
-Student-Profiling/
-├── frontend/              # React + Vite frontend
-│   └── src/
-│       ├── components/
-│       │   ├── charts/              # Chart components
-│       │   ├── visualizations/      # 2D/3D visualizations
-│       │   ├── Layout.jsx
-│       │   └── ProgressLoader.jsx
-│       ├── pages/                   # Page components
-│       └── store/                   # Zustand state management
-│
-├── api-server/            # Node.js/Express API
-│   ├── middleware/       # JWT authentication
-│   ├── models/           # Mongoose schemas
-│   ├── routes/           # API routes
-│   └── scripts/          # Utility scripts
-│
-├── ml-engine/             # Python FastAPI ML engine
-│   ├── core/             # Core ML modules
-│   ├── scripts/          # Data & model scripts
-│   ├── tests/            # Test files
-│   ├── utils/            # Utility scripts
-│   ├── data/             # Data files (JSON, CSV)
-│   ├── model/            # Trained models
-│   └── app.py            # FastAPI application
-│
-└── docs/                  # Project documentation
+Student-Career-Recommendation-System/
+|-- frontend/      # React + Vite client
+|-- api-server/    # Node.js + Express API layer
+|-- ml-engine/     # Python + FastAPI ML service
+|-- render.yaml    # Render multi-service blueprint
+`-- README.md
 ```
 
-## 🚀 Quick Start (Local Development)
+## Core Features
 
-### Prerequisites
-- Node.js 18+
-- Python 3.10+
-- MongoDB (local or Atlas)
+- RIASEC-based student profiling
+- Skill and subject preference capture
+- Automatic career-cluster assignment
+- Top career recommendations with similarity score
+- Skill-gap insights per recommendation
+- Interactive 2D/3D embedding visualizations
+- Public access for one-time recommendations (no login, no DB required)
 
-### Setup
+## Tech Stack
 
-1. **ML Engine** (Python):
-   ```bash
-   cd ml-engine
-   python -m venv venv
-   venv\Scripts\activate  # Windows
-   source venv/bin/activate  # Linux/Mac
-   pip install -r requirements.txt
-   python scripts/init_data.py
-   python scripts/generate_students.py
-   python scripts/train_models.py
-   python app.py  # Runs on http://localhost:8001
-   ```
+- Frontend: React, Vite, Tailwind CSS, Plotly, Zustand
+- API: Node.js, Express
+- ML: Python, FastAPI, scikit-learn, UMAP, sentence-transformers
 
-2. **API Server** (Node.js):
-   ```bash
-   cd api-server
-   npm install
-   # Create .env file (see .env.example)
-   npm start  # Runs on http://localhost:3000
-   ```
+## Local Setup
 
-3. **Frontend** (React):
-   ```bash
-   cd frontend
-   npm install
-   # Create .env file (see .env.example)
-   npm run dev  # Runs on http://localhost:5173
-   ```
+### 1) ML Engine
 
-## 🌐 Free Deployment
+```bash
+cd ml-engine
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+python scripts/init_data.py
+python scripts/generate_students.py
+python scripts/train_models.py
+python app.py
+```
 
-Deploy this entire platform for **FREE** using:
-- **Frontend**: Vercel
-- **Backend**: Render
-- **Database**: MongoDB Atlas
+### 2) API Server
 
-📖 **See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for complete deployment guide**
+```bash
+cd api-server
+npm install
+npm start
+```
 
-**Quick Start**: See [docs/DEPLOYMENT_QUICKSTART.md](docs/DEPLOYMENT_QUICKSTART.md)
+Required environment variables in api-server/.env:
 
-## 📚 Documentation
+```env
+ML_ENGINE_URL=http://localhost:8001
+PORT=3000
+FRONTEND_URL=http://localhost:5173
+```
 
-All documentation is in the `docs/` folder:
-- `SETUP.md` - Detailed setup instructions
-- `QUICKSTART.md` - Quick start guide
-- `PROJECT_STRUCTURE.md` - Detailed structure
-- `FEATURES.md` - Feature list
-- `DEPLOYMENT.md` - Complete deployment guide
-- `DEPLOYMENT_QUICKSTART.md` - Quick deployment steps
-- And more...
+Questionnaire submissions go through:
 
-## 🎯 Features
+```text
+POST /api/assessment/submit-public
+```
 
-- **RIASEC Assessment**: 48-question personality assessment
-- **Skill Analysis**: 10-skill evaluation
-- **Dual-Algorithm Clustering**: KMeans++ and KMeans (Random) with automatic selection
-- **Career Recommendations**: Top 5 careers with similarity scores
-- **Skill Gap Analysis**: Identifies areas for improvement
-- **Interactive Visualizations**: 2D/3D embeddings, cluster membership, career proximity
-- **Model Statistics**: Comprehensive ML metrics dashboard
-- **User Profiles**: Editable profile with image upload
+### 3) Frontend
 
-## 🛠️ Tech Stack
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-- **Frontend**: React, Vite, Tailwind CSS, Plotly.js, Zustand
-- **Backend**: Node.js, Express, MongoDB, Mongoose, JWT
-- **ML Engine**: Python, FastAPI, scikit-learn, UMAP, SentenceTransformers
-- **ML Models**: KMeans++ & KMeans (Random), PCA, UMAP
+Optional environment variable in frontend/.env:
 
-## 📊 Data
+```env
+VITE_API_URL=http://localhost:3000/api
+```
 
-- **25 Career Options** across 5 domains
-- **100 Synthetic Students** for training (in CSV format)
-- **5 Clusters**: Tech/Analytical, Creative, Business/Leadership, Social/People, Practical/Realistic
+## Deployment
 
-## 📝 License
+This repository includes render.yaml for deploying backend services on Render. The frontend can be deployed separately on Vercel.
 
-This project is for educational purposes.
+Suggested production setup:
+
+- Frontend: Vercel
+- API Server: Render Web Service
+- ML Engine: Render Web Service
+
+## Resume-Friendly Highlights
+
+- Built a production-style ML application with three independently deployable services
+- Implemented unsupervised clustering pipeline and recommendation logic
+- Designed interactive visual analytics for model output interpretation
+- Delivered a stateless recommendation workflow suitable for zero-friction career guidance

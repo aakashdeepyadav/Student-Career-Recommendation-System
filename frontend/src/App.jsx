@@ -1,95 +1,38 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect } from 'react';
-import useAuthStore from './store/authStore';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import Questionnaire from './pages/Questionnaire';
-import Results from './pages/Results';
-import Profile from './pages/Profile';
-import ModelStatistics from './pages/ModelStatistics';
-import ModelWorkflow from './pages/ModelWorkflow';
-import RIASECInfo from './pages/RIASECInfo';
+import { Suspense, lazy } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 
-function PrivateRoute({ children }) {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  return isAuthenticated ? children : <Navigate to="/login" />;
-}
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Questionnaire = lazy(() => import("./pages/Questionnaire"));
+const Results = lazy(() => import("./pages/Results"));
+const ModelStatistics = lazy(() => import("./pages/ModelStatistics"));
+const RIASECInfo = lazy(() => import("./pages/RIASECInfo"));
 
 function App() {
-  const initializeAuth = useAuthStore((state) => state.initializeAuth);
-
-  useEffect(() => {
-    // Initialize auth state on app load (restore user data from server or localStorage)
-    initializeAuth();
-  }, [initializeAuth]);
-
   return (
     <Router>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route
-          path="/dashboard"
-          element={
-            <PrivateRoute>
-              <Dashboard />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/questionnaire"
-          element={
-            <PrivateRoute>
-              <Questionnaire />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/results"
-          element={
-            <PrivateRoute>
-              <Results />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <PrivateRoute>
-              <Profile />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/model-statistics"
-          element={
-            <PrivateRoute>
-              <ModelStatistics />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/model-workflow"
-          element={
-            <PrivateRoute>
-              <ModelWorkflow />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/riasec-info"
-          element={
-            <PrivateRoute>
-              <RIASECInfo />
-            </PrivateRoute>
-          }
-        />
-        <Route path="/" element={<Navigate to="/dashboard" />} />
-      </Routes>
+      <Suspense
+        fallback={
+          <div className="min-h-screen flex items-center justify-center text-slate-600">
+            Loading...
+          </div>
+        }
+      >
+        <Routes>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/questionnaire" element={<Questionnaire />} />
+          <Route path="/results" element={<Results />} />
+          <Route path="/model-statistics" element={<ModelStatistics />} />
+          <Route path="/riasec-info" element={<RIASECInfo />} />
+          <Route path="/" element={<Navigate to="/questionnaire" />} />
+        </Routes>
+      </Suspense>
     </Router>
   );
 }
 
 export default App;
-

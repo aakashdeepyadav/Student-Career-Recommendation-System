@@ -10,6 +10,7 @@ from umap import UMAP
 from sentence_transformers import SentenceTransformer
 from typing import List, Dict, Tuple, Optional
 import os
+from pathlib import Path
 
 
 class EmbeddingReducer:
@@ -17,14 +18,19 @@ class EmbeddingReducer:
     Reduces high-dimensional vectors to 2D (PCA) and 3D (UMAP) for visualization.
     """
     
-    def __init__(self, model_dir: str = "model"):
-        self.model_dir = model_dir
-        os.makedirs(model_dir, exist_ok=True)
+    def __init__(self, model_dir: Optional[str] = None):
+        base_dir = Path(__file__).resolve().parents[1]
+        if model_dir is None:
+            self.model_dir = str(base_dir / "model")
+        else:
+            model_path = Path(model_dir)
+            self.model_dir = str(model_path if model_path.is_absolute() else (base_dir / model_path))
+        os.makedirs(self.model_dir, exist_ok=True)
         
         self.pca_2d = None
         self.umap_3d = None
-        self.pca_path = os.path.join(model_dir, "pca_2d.joblib")
-        self.umap_path = os.path.join(model_dir, "umap_3d.joblib")
+        self.pca_path = os.path.join(self.model_dir, "pca_2d.joblib")
+        self.umap_path = os.path.join(self.model_dir, "umap_3d.joblib")
         
         # Load existing models if available
         if os.path.exists(self.pca_path):

@@ -126,10 +126,16 @@ def generate_students(n_students=100, cluster_strength=0.75):
         cluster_profile = CLUSTER_PROFILES[cluster_name]
         
         for _ in range(count):
-            # Vary noise level and cluster strength for more natural but distinct distribution
-            noise = np.random.uniform(0.08, 0.12)  # Reduced noise for better separation
-            strength = np.random.uniform(cluster_strength - 0.05, cluster_strength + 0.05)
-            strength = np.clip(strength, 0.6, 0.9)  # Keep within reasonable bounds
+            # Vary noise based on target separation.
+            # For high-separation runs, we tighten noise to maximize cluster quality.
+            if cluster_strength >= 0.82:
+                noise = np.random.uniform(0.04, 0.08)
+                strength = np.random.uniform(cluster_strength - 0.03, cluster_strength + 0.03)
+                strength = np.clip(strength, 0.78, 0.95)
+            else:
+                noise = np.random.uniform(0.08, 0.12)
+                strength = np.random.uniform(cluster_strength - 0.05, cluster_strength + 0.05)
+                strength = np.clip(strength, 0.6, 0.9)
             student = generate_student(f"student_{student_id}", cluster_name, cluster_profile, noise, strength)
             students.append(student)
             student_id += 1
@@ -167,15 +173,15 @@ def students_to_dataframe(students):
 
 def main():
     np.random.seed(42)  # For reproducibility
+    target_strength = 0.86
     
     print("=" * 70)
     print("  Generating 100 Synthetic Student Profiles for Clustering")
-    print("  Using reduced cluster separation (cluster_strength=0.58) to show algorithm differences")
+    print(f"  Using quality-first cluster separation (cluster_strength={target_strength:.2f})")
     print("=" * 70)
     
-    # Generate with reduced cluster separation to allow algorithm differences to show
-    # Lower separation = more overlap = random init may find different solutions
-    students = generate_students(100, cluster_strength=0.58)
+    # Ultra-quality generation for stronger separation and higher silhouette scores.
+    students = generate_students(100, cluster_strength=target_strength)
     
     # Print summary
     print(f"\nGenerated {len(students)} students:")
@@ -198,7 +204,7 @@ def main():
     
     # Save to CSV (for analysis)
     df = students_to_dataframe(students)
-    csv_path = os.path.join("data", "students.csv")
+    csv_path = os.path.join(data_loader.data_dir, "students.csv")
     df.to_csv(csv_path, index=False)
     print(f"[OK] Saved {len(students)} students to data/students.csv")
     

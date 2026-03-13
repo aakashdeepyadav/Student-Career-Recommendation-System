@@ -33,15 +33,12 @@ def main():
     
     print(f"Training on {len(student_vectors)} student profiles...")
     
-    # Train clusterer (auto-selects best algorithm: KMeans++ or KMeans Random)
-    print("Training clustering models (KMeans++ and KMeans Random)...")
-    print("Will automatically select the best performing algorithm...")
-    clusterer = StudentClusterer(n_clusters=5, algorithm='auto')
+    # Train clusterer with fixed KMeans++ (no auto-selection).
+    print("Training clustering model (KMeans++)...")
+    clusterer = StudentClusterer(n_clusters=5, algorithm='kmeans_plus')
     clusterer.fit(student_vectors)
     print(f"[OK] Clustering model trained and saved")
-    algo = clusterer.get_active_algorithm()
-    algo_display = "KMeans++" if algo == 'kmeans_plus' or algo == 'kmeans' else "KMeans (Random)"
-    print(f"[OK] Selected algorithm: {algo_display}")
+    print("[OK] Active algorithm: KMeans++")
     metrics = clusterer.get_metrics()
     if metrics:
         print(f"[OK] Comparison metrics:")

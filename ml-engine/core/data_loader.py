@@ -4,10 +4,9 @@ Loads and manages career and student datasets.
 """
 
 import json
-import numpy as np
-import pandas as pd
 from typing import List, Dict, Optional
 import os
+from pathlib import Path
 
 
 class DataLoader:
@@ -15,9 +14,15 @@ class DataLoader:
     Loads career and student datasets.
     """
     
-    def __init__(self, data_dir: str = "data"):
-        self.data_dir = data_dir
-        os.makedirs(data_dir, exist_ok=True)
+    def __init__(self, data_dir: Optional[str] = None):
+        # Anchor paths to the ml-engine root to avoid cwd-dependent artifacts.
+        self.base_dir = Path(__file__).resolve().parents[1]
+        if data_dir is None:
+            self.data_dir = str(self.base_dir / "data")
+        else:
+            data_path = Path(data_dir)
+            self.data_dir = str(data_path if data_path.is_absolute() else (self.base_dir / data_path))
+        os.makedirs(self.data_dir, exist_ok=True)
     
     def load_careers(self, filepath: Optional[str] = None) -> List[Dict]:
         """

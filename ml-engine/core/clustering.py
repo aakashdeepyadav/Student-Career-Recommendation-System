@@ -1,7 +1,7 @@
 """
 Clustering Module
 Handles clustering of student profiles using multiple algorithms.
-Supports KMeans with k-means++ initialization and KMeans with random initialization for comparison.
+Supports KMeans with k-means++ initialization as the default runtime model.
 """
 
 import numpy as np
@@ -12,6 +12,7 @@ from sklearn.metrics import silhouette_score, calinski_harabasz_score, davies_bo
 from core.metrics import calculate_dunn_index
 from typing import List, Tuple, Optional, Dict
 import os
+from pathlib import Path
 
 # Calculate pairwise distances using numpy
 def _pairwise_distances(centers):
@@ -27,22 +28,26 @@ def _pairwise_distances(centers):
 
 class StudentClusterer:
     """
-    Clusters students using multiple algorithms (KMeans and GMM).
-    Automatically selects the best algorithm based on evaluation metrics.
+    Clusters students using KMeans variants.
     """
     
-    def __init__(self, n_clusters: int = 5, algorithm: str = 'auto', model_path: Optional[str] = None):
+    def __init__(self, n_clusters: int = 5, algorithm: str = 'kmeans_plus', model_path: Optional[str] = None):
         """
         Initialize clusterer.
         
         Args:
             n_clusters: Number of clusters (default: 5)
-            algorithm: 'kmeans_plus', 'kmeans_random', or 'auto' (default: 'auto' - selects best)
+            algorithm: 'kmeans_plus', 'kmeans_random', or 'auto' (default: 'kmeans_plus')
             model_path: Path to saved model (optional)
         """
         self.n_clusters = n_clusters
         self.algorithm = algorithm
-        self.model_path = model_path or "model/clustering_model.joblib"
+        base_dir = Path(__file__).resolve().parents[1]
+        if model_path is None:
+            self.model_path = str(base_dir / "model" / "clustering_model.joblib")
+        else:
+            path_obj = Path(model_path)
+            self.model_path = str(path_obj if path_obj.is_absolute() else (base_dir / path_obj))
         self.kmeans_plus = None  # KMeans with k-means++ initialization
         self.kmeans_random = None  # KMeans with random initialization
         self.best_algorithm = None  # Will be set after fitting
@@ -54,6 +59,7 @@ class StudentClusterer:
             "Practical/Realistic"
         ]
         self.metrics = {}  # Store evaluation metrics
+        self.requested_algorithm = algorithm
         
         # Create model directory if it doesn't exist
         os.makedirs(os.path.dirname(self.model_path), exist_ok=True)
@@ -61,6 +67,8 @@ class StudentClusterer:
         # Load existing model if available
         if os.path.exists(self.model_path):
             self.load_model()
+            # Keep constructor choice authoritative.
+            self.algorithm = self.requested_algorithm
     
     def fit(self, student_vectors: np.ndarray):
         """
@@ -74,11 +82,25 @@ class StudentClusterer:
             # Fit both algorithms and compare
             self._fit_and_compare(student_vectors)
         elif self.algorithm == 'kmeans_plus' or self.algorithm == 'kmeans':
+            # Single-model mode: keep only KMeans++
+            self.kmeans_random = None
             self._fit_kmeans_plus(student_vectors)
             self.best_algorithm = 'kmeans_plus'
+            # Refresh metrics for fixed KMeans++ mode
+            self.metrics = {
+                'kmeans_plus': self._evaluate_model_comprehensive(student_vectors, 'kmeans_plus', 0.0),
+                'selected': self.best_algorithm
+            }
         elif self.algorithm == 'kmeans_random':
+            # Single-model mode: keep only KMeans random
+            self.kmeans_plus = None
             self._fit_kmeans_random(student_vectors)
             self.best_algorithm = 'kmeans_random'
+            # Refresh metrics for fixed KMeans random mode
+            self.metrics = {
+                'kmeans_random': self._evaluate_model_comprehensive(student_vectors, 'kmeans_random', 0.0),
+                'selected': self.best_algorithm
+            }
         else:
             raise ValueError(f"Unknown algorithm: {self.algorithm}. Use 'kmeans_plus', 'kmeans_random', or 'auto'")
         
@@ -89,7 +111,7 @@ class StudentClusterer:
         self.kmeans_plus = KMeans(
             n_clusters=self.n_clusters,
             init='k-means++',
-            n_init=10,  # Fewer runs since k-means++ is more stable
+            n_init=20,
             max_iter=300,
             random_state=42  # Fixed seed for reproducibility
         )
@@ -100,8 +122,8 @@ class StudentClusterer:
         self.kmeans_random = KMeans(
             n_clusters=self.n_clusters,
             init='random',
-            n_init=3,  # Very few runs - random init often finds suboptimal solutions
-            max_iter=100,  # Fewer iterations - may stop before full convergence
+            n_init=20,
+            max_iter=300,
             random_state=789  # Different fixed seed to show variation from k-means++
         )
         self.kmeans_random.fit(student_vectors)
@@ -413,7 +435,7 @@ class StudentClusterer:
             if old_gmm is not None:
                 print("[WARNING] Old GMM model found. Please retrain models to use KMeans++ vs KMeans (random) comparison.")
             self.best_algorithm = model_data.get('best_algorithm')
-            self.algorithm = model_data.get('algorithm', 'auto')
+            self.algorithm = model_data.get('algorithm', self.algorithm)
             self.n_clusters = model_data.get('n_clusters', 5)
             self.cluster_names = model_data.get('cluster_names', self.cluster_names)
             self.metrics = model_data.get('metrics', {})

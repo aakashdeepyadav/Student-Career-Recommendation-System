@@ -44,8 +44,8 @@ app.add_middleware(
 # Initialize components
 data_loader = DataLoader()
 profile_processor = ProfileProcessor()
-# Use 'auto' to automatically select best algorithm (KMeans or GMM)
-clusterer = StudentClusterer(algorithm='auto')
+# Use fixed KMeans++ for deterministic model selection.
+clusterer = StudentClusterer(algorithm='kmeans_plus')
 embedding_reducer = EmbeddingReducer()
 career_embedder = CareerEmbedder()
 similarity_engine = SimilarityEngine()
@@ -64,19 +64,15 @@ if len(students_data) > 0:
     if len(student_vectors) > 0 and student_vectors.shape[1] > 0:
         try:
             # Check if model exists and has metrics
-            import os
-            model_path = "model/clustering_model.joblib"
+            model_path = clusterer.model_path
             if os.path.exists(model_path):
                 # Try to load existing model first
                 try:
                     clusterer.load_model()
                     print("[OK] Loaded existing clustering model from disk")
-                    # Verify it has deployment metrics
-                    metrics = clusterer.get_metrics()
-                    if metrics and 'kmeans' in metrics and 'gmm' in metrics:
-                        print("[OK] Model has deployment metrics - ready for dual algorithm comparison")
-                    else:
-                        print("[WARNING] Model missing deployment metrics - will retrain to generate them")
+                    # Ensure KMeans++ model exists for fixed selection mode.
+                    if clusterer.kmeans_plus is None:
+                        print("[WARNING] Saved model missing KMeans++ - retraining")
                         clusterer.fit(student_vectors)
                 except Exception as load_error:
                     print(f"[WARNING] Could not load model: {load_error}")
@@ -126,7 +122,6 @@ class ClusterRequest(BaseModel):
 
 class VisualizationRequest(BaseModel):
     combined_vector: List[float]
-    recommended_career_ids: Optional[List[str]] = None
     recommended_career_ids: Optional[List[str]] = None
 
 class RecommendRequest(BaseModel):
