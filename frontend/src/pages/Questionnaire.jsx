@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import useProfileStore from "../store/profileStore";
@@ -117,15 +117,13 @@ const SECTIONS = [
 
 function Questionnaire() {
   const navigate = useNavigate();
-  const { submitProfile, loading, loadingStep, warmUpServers } =
-    useProfileStore();
+  const { submitProfile, loading, loadingStep } = useProfileStore();
 
   const [riasecResponses, setRiasecResponses] = useState({});
   const [skillResponses, setSkillResponses] = useState({});
   const [subjectResponses, setSubjectResponses] = useState({});
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [error, setError] = useState("");
-  const [warmupTriggered, setWarmupTriggered] = useState(false);
 
   const currentSection = SECTIONS[currentSectionIndex];
 
@@ -150,31 +148,15 @@ function Questionnaire() {
 
   const { sectionProgress, overallProgress } = calculateProgress();
 
-  useEffect(() => {
-    warmUpServers();
-  }, [warmUpServers]);
-
-  const triggerWarmup = () => {
-    if (warmupTriggered) {
-      return;
-    }
-
-    setWarmupTriggered(true);
-    warmUpServers();
-  };
-
   const handleRiasecChange = (questionId, value) => {
-    triggerWarmup();
     setRiasecResponses({ ...riasecResponses, [questionId]: parseInt(value) });
   };
 
   const handleSkillChange = (skillId, value) => {
-    triggerWarmup();
     setSkillResponses({ ...skillResponses, [skillId]: parseInt(value) });
   };
 
   const handleSubjectChange = (subjectId, value) => {
-    triggerWarmup();
     setSubjectResponses({ ...subjectResponses, [subjectId]: parseInt(value) });
   };
 
@@ -205,7 +187,6 @@ function Questionnaire() {
     }
 
     setError("");
-    await warmUpServers();
     const result = await submitProfile(
       riasecResponses,
       skillResponses,

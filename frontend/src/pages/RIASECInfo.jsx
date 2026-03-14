@@ -448,7 +448,7 @@ function RIASECInfo() {
           <div className="flex items-center space-x-3 mb-6">
             <BeakerIcon className="w-8 h-8 text-emerald-600" />
             <h2 className="text-3xl font-bold text-gray-800">
-              How RIASEC is Mapped in SCRS
+              How RIASEC is Mapped in Student Career Recommendation System
             </h2>
           </div>
 
@@ -459,8 +459,8 @@ function RIASECInfo() {
                 <span>Our Implementation</span>
               </h3>
               <p className="text-emerald-800 mb-4">
-                In the Student Career Recommendation System (SCRS), RIASEC plays
-                a central role in understanding student interests and matching
+                In the Student Career Recommendation System, RIASEC plays a
+                central role in understanding student interests and matching
                 them with appropriate career paths.
               </p>
             </div>
@@ -566,7 +566,7 @@ function RIASECInfo() {
             {/* Process Flow */}
             <div className="mt-8 p-6 bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 rounded-xl border border-indigo-200">
               <h4 className="font-bold text-gray-800 mb-4">
-                RIASEC Processing Flow in SCRS
+                RIASEC Processing Flow in Student Career Recommendation System
               </h4>
               <div className="flex flex-wrap items-center justify-center gap-4">
                 <div className="text-center">

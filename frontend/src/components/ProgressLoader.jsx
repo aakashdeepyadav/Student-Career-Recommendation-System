@@ -43,6 +43,11 @@ const STEPS = [
 
 function ProgressLoader({ currentStep = 0, isComplete = false }) {
   const [animatedSteps, setAnimatedSteps] = useState([]);
+  const safeStep = Math.max(0, Math.min(currentStep, STEPS.length - 1));
+  const progress = isComplete
+    ? 100
+    : Math.max(8, Math.min(((safeStep + 1) / STEPS.length) * 100, 98));
+  const activeStep = STEPS[safeStep];
 
   useEffect(() => {
     // Animate steps as they complete
@@ -69,41 +74,104 @@ function ProgressLoader({ currentStep = 0, isComplete = false }) {
         WebkitBackdropFilter: "blur(8px)",
       }}
     >
-      <div className="relative w-full max-w-md mx-auto px-4">
+      <div className="relative w-full max-w-lg mx-auto px-4">
         {/* Main Card */}
-        <div className="bg-white rounded-2xl shadow-2xl p-6 animate-scaleIn">
+        <div className="bg-white rounded-3xl shadow-2xl p-6 md:p-7 animate-scaleIn border border-slate-200/70">
           {/* Header */}
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-blue-600 to-blue-500 mb-3 animate-pulse">
-              <SparklesIcon className="w-8 h-8 text-white" />
+          <div className="mb-6">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cyan-700 mb-1">
+                  Processing Submission
+                </p>
+                <h2 className="text-2xl font-bold text-gray-800 mb-1">
+                  {isComplete ? "Finalizing Results" : "Preparing Your Report"}
+                </h2>
+                <p className="text-sm text-gray-600">
+                  {isComplete
+                    ? "Final checks are done. Opening results now..."
+                    : activeStep?.description || "Please wait a moment."}
+                </p>
+              </div>
+
+              <div className="relative w-16 h-16 flex-shrink-0">
+                <svg className="w-16 h-16 -rotate-90" viewBox="0 0 100 100">
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="44"
+                    fill="none"
+                    stroke="#e2e8f0"
+                    strokeWidth="8"
+                  />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="44"
+                    fill="none"
+                    stroke="url(#loaderGradient)"
+                    strokeWidth="8"
+                    strokeLinecap="round"
+                    strokeDasharray={`${(progress / 100) * 276.46} 276.46`}
+                    className="transition-all duration-500"
+                  />
+                  <defs>
+                    <linearGradient
+                      id="loaderGradient"
+                      x1="0"
+                      y1="0"
+                      x2="100"
+                      y2="100"
+                    >
+                      <stop offset="0%" stopColor="#0f4f63" />
+                      <stop offset="100%" stopColor="#0f766e" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <SparklesIcon className="w-6 h-6 text-cyan-700" />
+                </div>
+              </div>
             </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-1">
-              {isComplete ? "Almost Done!" : "Processing Your Assessment"}
-            </h2>
-            <p className="text-sm text-gray-600">
+
+            <div className="flex items-center justify-between text-xs text-slate-600 mb-2">
+              <span>
+                Step {isComplete ? STEPS.length : safeStep + 1} of{" "}
+                {STEPS.length}
+              </span>
+              <span className="font-semibold text-slate-700">
+                {Math.round(progress)}%
+              </span>
+            </div>
+            <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-cyan-700 to-teal-600 rounded-full transition-all duration-500"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <p className="text-[11px] text-slate-500 mt-2">
               {isComplete
-                ? "Finalizing your personalized career recommendations..."
-                : "This will only take a moment"}
+                ? "Ready. Redirecting to your personalized report..."
+                : activeStep?.title}
             </p>
           </div>
 
           {/* Progress Steps */}
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {STEPS.map((step, index) => {
-              const isActive = index === currentStep && !isComplete;
+              const isActive = index === safeStep && !isComplete;
               const isCompleted = index < currentStep || isComplete;
-              const isPending = index > currentStep && !isComplete;
               const isAnimated = animatedSteps.includes(index);
 
               return (
                 <div
                   key={step.id}
-                  className={`relative flex items-start space-x-3 p-3 rounded-lg transition-all duration-500 ${
+                  className={`relative flex items-start space-x-3 p-3.5 rounded-xl transition-all duration-500 ${
                     isActive
-                      ? "bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 shadow-md scale-[1.02]"
+                      ? "bg-gradient-to-r from-cyan-50 to-teal-50 border border-cyan-200 shadow-sm"
                       : isCompleted
-                        ? "bg-green-50 border border-green-200"
-                        : "bg-gray-50 border border-gray-200 opacity-60"
+                        ? "bg-emerald-50 border border-emerald-200"
+                        : "bg-slate-50 border border-slate-200 opacity-70"
                   }`}
                   style={{
                     animation:
@@ -116,10 +184,10 @@ function ProgressLoader({ currentStep = 0, isComplete = false }) {
                   <div
                     className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-base transition-all duration-500 ${
                       isActive
-                        ? "bg-gradient-to-br from-blue-600 to-blue-500 text-white shadow-md animate-pulse"
+                        ? "bg-gradient-to-br from-cyan-700 to-teal-600 text-white shadow-sm"
                         : isCompleted
-                          ? "bg-green-500 text-white"
-                          : "bg-gray-300 text-gray-600"
+                          ? "bg-emerald-500 text-white"
+                          : "bg-slate-300 text-slate-600"
                     }`}
                   >
                     {isCompleted ? (
@@ -134,10 +202,10 @@ function ProgressLoader({ currentStep = 0, isComplete = false }) {
                     <h3
                       className={`font-semibold mb-0.5 transition-colors duration-300 text-sm ${
                         isActive
-                          ? "text-blue-700"
+                          ? "text-cyan-800"
                           : isCompleted
-                            ? "text-green-700"
-                            : "text-gray-500"
+                            ? "text-emerald-700"
+                            : "text-slate-500"
                       }`}
                     >
                       {step.title}
@@ -145,10 +213,10 @@ function ProgressLoader({ currentStep = 0, isComplete = false }) {
                     <p
                       className={`text-xs transition-colors duration-300 ${
                         isActive
-                          ? "text-blue-600"
+                          ? "text-cyan-700"
                           : isCompleted
-                            ? "text-green-600"
-                            : "text-gray-400"
+                            ? "text-emerald-600"
+                            : "text-slate-400"
                       }`}
                     >
                       {step.description}
@@ -158,7 +226,7 @@ function ProgressLoader({ currentStep = 0, isComplete = false }) {
                   {/* Loading Spinner for Active Step */}
                   {isActive && (
                     <div className="flex-shrink-0">
-                      <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                      <div className="w-5 h-5 border-2 border-cyan-600 border-t-transparent rounded-full animate-spin"></div>
                     </div>
                   )}
 
@@ -166,7 +234,7 @@ function ProgressLoader({ currentStep = 0, isComplete = false }) {
                   {index < STEPS.length - 1 && (
                     <div
                       className={`absolute left-5 top-11 w-0.5 h-10 transition-all duration-500 ${
-                        isCompleted ? "bg-green-400" : "bg-gray-200"
+                        isCompleted ? "bg-emerald-400" : "bg-slate-200"
                       }`}
                       style={{ zIndex: -1 }}
                     />
@@ -176,34 +244,10 @@ function ProgressLoader({ currentStep = 0, isComplete = false }) {
             })}
           </div>
 
-          {/* Overall Progress Bar */}
-          <div className="mt-6">
-            <div className="flex items-center justify-between text-xs text-gray-600 mb-1.5">
-              <span>Overall Progress</span>
-              <span className="font-semibold">
-                {isComplete
-                  ? "100%"
-                  : `${Math.min(Math.round(((currentStep + 1) / STEPS.length) * 100), 100)}%`}
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 rounded-full transition-all duration-500 ease-out relative overflow-hidden"
-                style={{
-                  width: isComplete
-                    ? "100%"
-                    : `${Math.min(((currentStep + 1) / STEPS.length) * 100, 100)}%`,
-                }}
-              >
-                <div className="absolute inset-0 bg-white/30 animate-shimmer"></div>
-              </div>
-            </div>
-          </div>
-
           {/* Footer Message */}
           {isComplete && (
             <div className="mt-4 text-center animate-fadeIn">
-              <p className="text-green-600 font-semibold text-sm flex items-center justify-center space-x-2">
+              <p className="text-emerald-600 font-semibold text-sm flex items-center justify-center space-x-2">
                 <CheckCircleIcon className="w-4 h-4" />
                 <span>Redirecting to your results...</span>
               </p>

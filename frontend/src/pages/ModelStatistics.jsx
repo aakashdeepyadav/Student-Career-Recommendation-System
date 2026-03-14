@@ -18,6 +18,7 @@ import {
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 const MODEL_STATS_CACHE_KEY = "scrs-model-statistics-cache-v1";
 const MODEL_STATS_CACHE_TTL_MS = 1000 * 60 * 60 * 6;
+const MODEL_STATS_RETRY_COUNT = 2;
 
 const readCachedModelStats = () => {
   try {
@@ -59,6 +60,33 @@ function ModelStatistics() {
     fetchStatistics();
   }, []);
 
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const fetchModelStatsWithRetry = async () => {
+    let lastError;
+
+    for (let attempt = 0; attempt <= MODEL_STATS_RETRY_COUNT; attempt += 1) {
+      try {
+        return await axios.get(`${API_URL}/assessment/model-statistics`, {
+          timeout: 65000,
+        });
+      } catch (err) {
+        lastError = err;
+        const statusCode = err?.response?.status;
+        const shouldRetry =
+          statusCode === 503 && attempt < MODEL_STATS_RETRY_COUNT;
+
+        if (!shouldRetry) {
+          throw err;
+        }
+
+        await sleep(1200 * (attempt + 1));
+      }
+    }
+
+    throw lastError;
+  };
+
   const fetchStatistics = async (forceRefresh = false) => {
     if (!forceRefresh) {
       const cached = readCachedModelStats();
@@ -74,21 +102,11 @@ function ModelStatistics() {
       setLoading(true);
       setError(null);
 
-      await axios.get(`${API_URL}/assessment/warmup`, {
-        timeout: 65000,
-      });
-
-      const response = await axios.get(
-        `${API_URL}/assessment/model-statistics`,
-        {
-          timeout: 65000,
-        },
-      );
+      const response = await fetchModelStatsWithRetry();
 
       writeCachedModelStats(response.data);
       setStats(response.data);
     } catch (err) {
-      console.error("Error fetching model statistics:", err);
       if (!stats) {
         setError(
           err.response?.data?.error || "Failed to fetch model statistics",

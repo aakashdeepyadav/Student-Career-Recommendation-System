@@ -74,7 +74,7 @@ function Layout({ children }) {
               </svg>
             </div>
             <span className="font-bold text-slate-900 tracking-tight">
-              SCRS
+              Student Career Recommendation System
             </span>
           </Link>
 
@@ -159,10 +159,10 @@ function Layout({ children }) {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-slate-900 leading-tight">
-                  SCRS
+                  Student Career Recommendation System
                 </h1>
                 <p className="text-xs text-slate-500 leading-snug mt-1">
-                  Career Intelligence for Students
+                  Made by Aakash Deep Yadav with love
                 </p>
               </div>
             </Link>
@@ -207,7 +207,14 @@ function Layout({ children }) {
         <div className="relative pt-20 md:pt-8 p-4 sm:p-5 md:p-8 lg:p-10">
           <div className="pointer-events-none absolute -top-8 -right-8 w-64 h-64 bg-cyan-200/30 rounded-full blur-3xl" />
           <div className="pointer-events-none absolute bottom-8 left-8 w-56 h-56 bg-amber-200/25 rounded-full blur-3xl" />
-          <div className="relative z-10">{children}</div>
+          <div className="relative z-10">
+            {children}
+            <footer className="mt-10 pt-6 border-t border-slate-200/70">
+              <p className="text-center text-xs sm:text-sm text-slate-500 tracking-tight">
+                Made by Aakash Deep Yadav with love.
+              </p>
+            </footer>
+          </div>
         </div>
       </main>
     </div>
