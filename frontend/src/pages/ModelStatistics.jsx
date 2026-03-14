@@ -30,8 +30,16 @@ function ModelStatistics() {
     try {
       setLoading(true);
       setError(null);
+
+      await axios.get(`${API_URL}/assessment/warmup`, {
+        timeout: 65000,
+      });
+
       const response = await axios.get(
         `${API_URL}/assessment/model-statistics`,
+        {
+          timeout: 65000,
+        },
       );
       setStats(response.data);
     } catch (err) {

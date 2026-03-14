@@ -2,8 +2,12 @@ import { create } from 'zustand';
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const WARMUP_TTL_MS = 2 * 60 * 1000;
 
-const useProfileStore = create((set) => ({
+let warmupPromise = null;
+let lastWarmupAt = 0;
+
+const useProfileStore = create((set, get) => ({
   profile: null,
   recommendations: null,
   cluster: null,
@@ -24,59 +28,65 @@ const useProfileStore = create((set) => ({
     });
   },
 
+  warmUpServers: async (force = false) => {
+    const now = Date.now();
+
+    if (!force && now - lastWarmupAt < WARMUP_TTL_MS) {
+      return { success: true, cached: true };
+    }
+
+    if (!force && warmupPromise) {
+      return warmupPromise;
+    }
+
+    warmupPromise = axios
+      .get(`${API_URL}/assessment/warmup`, { timeout: 65000 })
+      .then(() => {
+        lastWarmupAt = Date.now();
+        return { success: true, cached: false };
+      })
+      .catch(() => {
+        return { success: false };
+      })
+      .finally(() => {
+        warmupPromise = null;
+      });
+
+    return warmupPromise;
+  },
+
   submitProfile: async (riasec_responses, skill_responses, subject_preferences) => {
     set({ loading: true, loadingStep: 0, error: null });
-    
-    // Simulate progress steps with delays to show user what's happening
+    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
     const updateStep = (step) => {
       set({ loadingStep: step });
     };
+
+    const timers = [
+      setTimeout(() => updateStep(1), 400),
+      setTimeout(() => updateStep(2), 900),
+    ];
     
     try {
       const submitPath = '/assessment/submit-public';
-      
-      // Step 1: Calculating RIASEC summary
+
+      await get().warmUpServers();
+
       updateStep(0);
-      await new Promise(resolve => setTimeout(resolve, 1800));
-      
-      // Step 2: Finding Cluster
-      updateStep(1);
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Step 3: Mapping to Careers
-      updateStep(2);
-      await new Promise(resolve => setTimeout(resolve, 1400));
-      
-      // Make the actual API call
       updateStep(3);
+
       const response = await axios.post(`${API_URL}${submitPath}`, {
         riasec_responses,
         skill_responses,
         subject_preferences
       });
-      
-      // Step 4: Analyzing Skill Gaps
+
       updateStep(4);
-      await new Promise(resolve => setTimeout(resolve, 1300));
-      
-      // Step 5: Creating Visualizations
+      await delay(300);
+
       updateStep(5);
-      await new Promise(resolve => setTimeout(resolve, 1200));
-      
-      // Log recommendations with skill gaps for debugging
-      if (response.data.recommendations) {
-        console.log('[STORE] Received recommendations:', response.data.recommendations.length);
-        response.data.recommendations.forEach((rec, idx) => {
-          if (rec.skill_gaps && Object.keys(rec.skill_gaps).length > 0) {
-            console.log(`[STORE] ${rec.title} - Skill gaps:`, rec.skill_gaps);
-          } else {
-            console.log(`[STORE] ${rec.title} - No skill gaps`);
-          }
-        });
-      }
-      
-      // Complete - show final step for a bit longer
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await delay(300);
       
       set({
         profile: response.data.profile,
@@ -94,6 +104,8 @@ const useProfileStore = create((set) => ({
         loadingStep: 0,
       });
       return { success: false, error: error.response?.data?.error };
+    } finally {
+      timers.forEach((timer) => clearTimeout(timer));
     }
   },
 

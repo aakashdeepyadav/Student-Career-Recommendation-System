@@ -173,6 +173,51 @@ router.get('/model-statistics', async (req, res) => {
   }
 });
 
+router.get('/warmup', async (req, res) => {
+  const startedAt = Date.now();
+
+  try {
+    const checks = await Promise.allSettled([
+      axios.get(`${ML_ENGINE_URL}/health`, { timeout: 45000 }),
+      axios.get(`${ML_ENGINE_URL}/model-statistics`, { timeout: 60000 })
+    ]);
+
+    const healthReady = checks[0].status === 'fulfilled';
+    const statsReady = checks[1].status === 'fulfilled';
+    const ready = healthReady && statsReady;
+
+    if (!ready) {
+      return res.status(503).json({
+        status: 'warming',
+        ready,
+        checks: {
+          health: healthReady,
+          model_statistics: statsReady
+        },
+        duration_ms: Date.now() - startedAt,
+        detail: 'ML engine is still warming up. Please retry shortly.'
+      });
+    }
+
+    return res.json({
+      status: 'ready',
+      ready: true,
+      checks: {
+        health: true,
+        model_statistics: true
+      },
+      duration_ms: Date.now() - startedAt
+    });
+  } catch (error) {
+    return res.status(503).json({
+      status: 'warming',
+      ready: false,
+      duration_ms: Date.now() - startedAt,
+      detail: error.message
+    });
+  }
+});
+
 router.get('/test', (req, res) => {
   res.json({ message: 'Assessment routes are working!' });
 });
