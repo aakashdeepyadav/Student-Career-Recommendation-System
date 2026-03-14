@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import Layout from "../components/Layout";
 import useProfileStore from "../store/profileStore";
 import RadarChart from "../components/charts/RadarChart";
@@ -125,13 +126,13 @@ function Results() {
               {error ||
                 "You haven't completed the questionnaire yet. Please complete it to see your career recommendations."}
             </p>
-            <a
-              href="/questionnaire"
-              className="inline-flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-3 rounded-xl font-semibold shadow-md hover:shadow-lg transition-all duration-200"
+            <Link
+              to="/questionnaire"
+              className="inline-flex items-center space-x-2 bg-gradient-to-r from-cyan-700 to-teal-600 text-white px-6 py-3 rounded-xl font-semibold shadow-md hover:shadow-lg transition-all duration-200"
             >
               <span>Go to Questionnaire</span>
               <ArrowTrendingUpIcon className="w-5 h-5" />
-            </a>
+            </Link>
           </div>
         </div>
       </Layout>
@@ -142,36 +143,36 @@ function Results() {
     <Layout>
       <div className="space-y-8 animate-fadeIn">
         {/* Header Section */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 p-8 text-white shadow-xl">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-cyan-900 to-teal-700 p-8 text-white shadow-xl border border-cyan-300/20">
           <div className="relative z-10">
             <div className="flex items-center space-x-3 mb-4">
-              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm border border-white/20">
                 <TrophyIcon className="w-8 h-8" />
               </div>
               <div>
                 <h1 className="text-4xl font-bold mb-2">
                   Your Career Assessment
                 </h1>
-                <p className="text-blue-100 text-lg">
-                  Personalized insights and recommendations
+                <p className="text-cyan-100 text-lg">
+                  Personalized insights, model confidence, and career trajectories
                 </p>
               </div>
             </div>
 
             {cluster && (
-              <div className="mt-6 p-4 bg-white/20 backdrop-blur-sm rounded-xl border border-white/30">
+              <div className="mt-6 p-4 bg-white/15 backdrop-blur-sm rounded-xl border border-white/25">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <AcademicCapIcon className="w-6 h-6" />
                     <div>
-                      <p className="text-sm text-blue-100">
+                      <p className="text-sm text-cyan-100">
                         Your Career Cluster
                       </p>
                       <p className="text-xl font-bold">
                         {cluster.cluster_name}
                       </p>
                       {cluster.algorithm_used && (
-                        <p className="text-xs text-blue-200 mt-1">
+                        <p className="text-xs text-cyan-200 mt-1">
                           Algorithm:{" "}
                           <span className="font-semibold">
                             {cluster.algorithm_used === "kmeans_plus" ||
@@ -191,8 +192,8 @@ function Results() {
           </div>
 
           {/* Decorative Elements */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full -ml-24 -mb-24 blur-3xl"></div>
+          <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-300/20 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-amber-300/20 rounded-full -ml-24 -mb-24 blur-3xl"></div>
         </div>
 
         {/* Statistics Overview Cards */}

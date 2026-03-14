@@ -94,24 +94,27 @@ function Dashboard() {
     <Layout>
       <div className="space-y-8 animate-fadeIn">
         {/* Hero Section */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 p-8 text-white shadow-xl">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-cyan-900 to-teal-700 p-8 text-white shadow-xl border border-cyan-300/20">
           <div className="relative z-10">
             <div className="flex items-center space-x-3 mb-4">
-              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm border border-white/20">
                 <LightBulbIcon className="w-8 h-8" />
               </div>
               <div>
                 <h1 className="text-4xl font-bold mb-2">Welcome to SCRS</h1>
-                <p className="text-blue-100 text-lg">
-                  Discover your ideal career path through AI-powered profiling
+                <p className="text-cyan-100 text-lg max-w-2xl">
+                  Career discovery, personality analytics, and recommendation intelligence in one focused workspace.
                 </p>
               </div>
+            </div>
+            <div className="inline-flex items-center rounded-full border border-cyan-200/30 bg-white/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-cyan-100">
+              Decision-Ready Insights
             </div>
           </div>
 
           {/* Decorative Elements */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full -ml-24 -mb-24 blur-3xl"></div>
+          <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-300/20 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-amber-300/20 rounded-full -ml-24 -mb-24 blur-3xl"></div>
         </div>
 
         {/* Stats Grid */}
@@ -173,7 +176,7 @@ function Dashboard() {
               {profile ? (
                 <Link
                   to="/results"
-                  className="group flex items-center space-x-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white px-8 py-4 rounded-xl font-semibold text-lg shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 hover:-translate-y-1 transition-all duration-200"
+                  className="group flex items-center space-x-3 bg-gradient-to-r from-cyan-700 to-teal-600 text-white px-8 py-4 rounded-xl font-semibold text-lg shadow-md shadow-cyan-700/20 hover:shadow-lg hover:shadow-cyan-700/30 hover:-translate-y-1 transition-all duration-200"
                 >
                   <ChartBarIcon className="w-6 h-6" />
                   <span>View Results</span>
@@ -182,7 +185,7 @@ function Dashboard() {
               ) : (
                 <Link
                   to="/questionnaire"
-                  className="group flex items-center space-x-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white px-8 py-4 rounded-xl font-semibold text-lg shadow-md shadow-blue-500/20 transition-all duration-200 hover:shadow-lg hover:shadow-blue-500/30 hover:-translate-y-0.5"
+                  className="group flex items-center space-x-3 bg-gradient-to-r from-cyan-700 to-teal-600 text-white px-8 py-4 rounded-xl font-semibold text-lg shadow-md shadow-cyan-700/20 transition-all duration-200 hover:shadow-lg hover:shadow-cyan-700/30 hover:-translate-y-0.5"
                 >
                   <ClipboardDocumentCheckIcon className="w-6 h-6" />
                   <span>Start Questionnaire</span>
