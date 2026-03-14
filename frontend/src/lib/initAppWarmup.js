@@ -2,6 +2,7 @@ import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 const WARMUP_URL = `${API_URL}/assessment/warmup`;
+const API_HEALTH_URL = API_URL.replace(/\/api\/?$/, "") + "/health";
 const WARMUP_TIMEOUT_MS = 65000;
 const MAX_ATTEMPTS = 3;
 
@@ -21,7 +22,18 @@ export const initAppWarmup = () => {
   warmupPromise = (async () => {
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
       try {
-        await axios.get(WARMUP_URL, { timeout: WARMUP_TIMEOUT_MS });
+        const [apiHealthResult, assessmentWarmupResult] = await Promise.allSettled([
+          axios.get(API_HEALTH_URL, { timeout: WARMUP_TIMEOUT_MS }),
+          axios.get(WARMUP_URL, { timeout: WARMUP_TIMEOUT_MS }),
+        ]);
+
+        const apiReady = apiHealthResult.status === "fulfilled";
+        const assessmentReady = assessmentWarmupResult.status === "fulfilled";
+
+        if (!apiReady || !assessmentReady) {
+          throw new Error("Warmup checks not ready");
+        }
+
         return true;
       } catch {
         if (attempt === MAX_ATTEMPTS - 1) {
