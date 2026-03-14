@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
@@ -7,7 +8,9 @@ const WARMUP_TTL_MS = 2 * 60 * 1000;
 let warmupPromise = null;
 let lastWarmupAt = 0;
 
-const useProfileStore = create((set, get) => ({
+const useProfileStore = create(
+  persist(
+    (set, get) => ({
   profile: null,
   recommendations: null,
   cluster: null,
@@ -109,7 +112,19 @@ const useProfileStore = create((set, get) => ({
     }
   },
 
-}));
+    }),
+    {
+      name: 'scrs-profile-storage',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        profile: state.profile,
+        recommendations: state.recommendations,
+        cluster: state.cluster,
+        visualization: state.visualization,
+      }),
+    },
+  ),
+);
 
 export default useProfileStore;
 

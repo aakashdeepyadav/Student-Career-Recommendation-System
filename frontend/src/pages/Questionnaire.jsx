@@ -117,7 +117,8 @@ const SECTIONS = [
 
 function Questionnaire() {
   const navigate = useNavigate();
-  const { submitProfile, loading, loadingStep, warmUpServers } = useProfileStore();
+  const { submitProfile, loading, loadingStep, warmUpServers } =
+    useProfileStore();
 
   const [riasecResponses, setRiasecResponses] = useState({});
   const [skillResponses, setSkillResponses] = useState({});
@@ -331,24 +332,25 @@ function Questionnaire() {
         />
       )}
 
-      <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
+      <div className="max-w-5xl mx-auto space-y-6 animate-fadeIn page-shell">
         {/* Header */}
-        <div className="card-elevated p-6">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+        <div className="hero-panel">
+          <span className="hero-kicker">Assessment</span>
+          <h1 className="text-3xl md:text-4xl font-bold text-white mt-3 mb-2">
             Career Profiling Questionnaire
           </h1>
-          <p className="text-gray-600">
+          <p className="text-cyan-100 max-w-2xl">
             Answer honestly to get the most accurate recommendations
           </p>
         </div>
 
         {/* Progress Bar */}
-        <div className="card p-6">
+        <div className="section-panel p-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-semibold text-gray-700">
               {currentSection.icon} {currentSection.name}
             </span>
-            <span className="text-sm font-semibold text-indigo-600">
+            <span className="text-sm font-semibold tone-teal">
               {Math.round(overallProgress)}% Complete
             </span>
           </div>
@@ -358,14 +360,12 @@ function Questionnaire() {
               style={{ width: `${overallProgress}%` }}
             ></div>
           </div>
-          <div className="flex justify-between mt-2 text-xs text-gray-500">
+          <div className="grid grid-cols-3 gap-2 mt-2 text-xs text-gray-500">
             {SECTIONS.map((section, idx) => (
               <span
                 key={section.id}
                 className={
-                  idx === currentSectionIndex
-                    ? "font-semibold text-indigo-600"
-                    : ""
+                  idx === currentSectionIndex ? "font-semibold tone-teal" : ""
                 }
               >
                 {section.name}
@@ -375,7 +375,7 @@ function Questionnaire() {
         </div>
 
         {/* Section Indicator */}
-        <div className="flex space-x-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {SECTIONS.map((section, idx) => {
             const isActive = idx === currentSectionIndex;
             const isCompleted = idx < currentSectionIndex;
@@ -384,9 +384,9 @@ function Questionnaire() {
                 key={section.id}
                 className={`flex-1 p-4 rounded-xl transition-all duration-200 ${
                   isActive
-                    ? "bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-md"
+                    ? "bg-tone-teal text-white shadow-md"
                     : isCompleted
-                      ? "bg-green-50 text-green-700 border border-green-200"
+                      ? "bg-teal-50 text-teal-700 border border-teal-200"
                       : "bg-gray-50 text-gray-500 border border-gray-200"
                 }`}
               >
@@ -404,11 +404,11 @@ function Questionnaire() {
         </div>
 
         {/* Scale Legend */}
-        <div className="card p-4 bg-indigo-50 border border-indigo-200">
-          <p className="text-sm font-semibold text-indigo-800 mb-2">
+        <div className="section-panel p-4 bg-amber-50 border border-amber-200">
+          <p className="text-sm font-semibold text-amber-800 mb-2">
             Rating Scale:
           </p>
-          <div className="flex justify-between text-xs text-indigo-700">
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-1 sm:gap-2 text-xs text-amber-700">
             <span>1 = Strongly Disagree</span>
             <span>2 = Disagree</span>
             <span>3 = Neutral</span>
@@ -418,7 +418,7 @@ function Questionnaire() {
         </div>
 
         {/* Questions */}
-        <div className="card p-6">
+        <div className="section-panel p-6">
           {currentSectionIndex === 0 && renderRiasecSection()}
           {currentSectionIndex === 1 && renderSkillsSection()}
           {currentSectionIndex === 2 && renderSubjectsSection()}
@@ -445,7 +445,7 @@ function Questionnaire() {
           {currentSectionIndex < SECTIONS.length - 1 ? (
             <button
               onClick={handleNext}
-              className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl font-semibold shadow-md transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:from-blue-700 hover:to-blue-600"
+              className="flex items-center space-x-2 px-6 py-3 bg-tone-teal text-white rounded-xl font-semibold shadow-md transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
             >
               <span>Next</span>
               <ArrowRightIcon className="w-5 h-5" />
@@ -454,7 +454,7 @@ function Questionnaire() {
             <button
               onClick={handleSubmit}
               disabled={loading}
-              className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-xl font-semibold shadow-md transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:from-emerald-700 hover:to-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none disabled:hover:shadow-md"
+              className="flex items-center space-x-2 px-8 py-3 bg-tone-amber text-white rounded-xl font-semibold shadow-md transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none disabled:hover:shadow-md"
             >
               {loading ? (
                 <>

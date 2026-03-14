@@ -141,20 +141,22 @@ function Results() {
 
   return (
     <Layout>
-      <div className="space-y-8 animate-fadeIn">
+      <div className="space-y-8 animate-fadeIn page-shell">
         {/* Header Section */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-cyan-900 to-teal-700 p-8 text-white shadow-xl border border-cyan-300/20">
+        <div className="hero-panel">
           <div className="relative z-10">
-            <div className="flex items-center space-x-3 mb-4">
+            <span className="hero-kicker">Assessment Report</span>
+            <div className="flex items-start md:items-center space-x-3 mb-4">
               <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm border border-white/20">
                 <TrophyIcon className="w-8 h-8" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold mb-2">
+                <h1 className="text-3xl md:text-4xl font-bold mb-2 leading-tight">
                   Your Career Assessment
                 </h1>
                 <p className="text-cyan-100 text-lg">
-                  Personalized insights, model confidence, and career trajectories
+                  A focused summary of your profile, fit scores, and next-step
+                  roles.
                 </p>
               </div>
             </div>
@@ -203,7 +205,7 @@ function Results() {
             return (
               <div
                 key={idx}
-                className="card p-6 hover:shadow-lg transition-all duration-200"
+                className="section-panel p-6 hover:shadow-lg transition-all duration-200"
               >
                 <div className="flex items-center justify-between mb-4">
                   <div className={`p-3 rounded-xl ${stat.bg}`}>
@@ -222,7 +224,7 @@ function Results() {
 
         {/* Profile Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="card-elevated p-6">
+          <div className="section-panel p-6">
             <div className="flex items-center space-x-2 mb-4">
               <SparklesIcon className="w-6 h-6 text-indigo-600" />
               <h2 className="text-2xl font-bold text-gray-800">
@@ -237,7 +239,7 @@ function Results() {
             </div>
           </div>
 
-          <div className="card-elevated p-6">
+          <div className="section-panel p-6">
             <div className="flex items-center space-x-2 mb-4">
               <ChartBarIcon className="w-6 h-6 text-blue-600" />
               <h2 className="text-2xl font-bold text-gray-800">
@@ -257,7 +259,7 @@ function Results() {
         {visualization ? (
           <>
             {/* Embeddings */}
-            <div className="card-elevated p-8">
+            <div className="section-panel p-8">
               <div className="flex items-center space-x-2 mb-6">
                 <ArrowTrendingUpIcon className="w-6 h-6 text-blue-600" />
                 <h2 className="text-3xl font-bold text-gray-800">
@@ -271,7 +273,7 @@ function Results() {
             </div>
 
             {/* Cluster Membership */}
-            <div className="card-elevated p-8">
+            <div className="section-panel p-8">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <div className="flex items-center space-x-2 mb-2">
@@ -310,7 +312,7 @@ function Results() {
 
             {/* Career Recommendations Visualization */}
             {recommendations && recommendations.length > 0 && (
-              <div className="card-elevated p-8">
+              <div className="section-panel p-8">
                 <div className="flex items-center space-x-2 mb-6">
                   <StarIcon className="w-6 h-6 text-yellow-500" />
                   <h2 className="text-3xl font-bold text-gray-800">
@@ -336,7 +338,7 @@ function Results() {
 
             {/* Nearby Careers 3D */}
             {recommendations && recommendations.length > 0 && (
-              <div className="card-elevated p-8">
+              <div className="section-panel p-8">
                 <div className="flex items-center space-x-2 mb-6">
                   <SparklesIcon className="w-6 h-6 text-pink-600" />
                   <h2 className="text-3xl font-bold text-gray-800">
@@ -344,7 +346,7 @@ function Results() {
                   </h2>
                 </div>
                 <p className="text-gray-600 mb-6">
-                  Explore careers that are close to your top recommendation in
+                  Explore nearby roles around your strongest recommendation in
                   3D embedding space.
                 </p>
                 {visualization.careers_3d &&
@@ -362,7 +364,7 @@ function Results() {
             )}
           </>
         ) : (
-          <div className="card-elevated p-8">
+          <div className="section-panel p-8">
             <div className="text-center py-8">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent mb-4"></div>
               <p className="text-gray-600">Loading visualization data...</p>
@@ -375,7 +377,7 @@ function Results() {
 
         {/* Career Recommendations List */}
         {recommendations && recommendations.length > 0 && (
-          <div className="card-elevated p-8">
+          <div className="section-panel p-8">
             <div className="flex items-center space-x-2 mb-6">
               <TrophyIcon className="w-6 h-6 text-blue-600" />
               <h2 className="text-3xl font-bold text-gray-800">
@@ -387,19 +389,19 @@ function Results() {
                 return (
                   <div
                     key={idx}
-                    className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-white to-gray-50 p-6 border border-gray-200 transition-all duration-300 hover:border-indigo-300 hover:shadow-xl"
+                    className="group relative overflow-hidden rounded-2xl bg-white p-6 border border-slate-200 transition-all duration-300 hover:border-slate-300 hover:shadow-lg"
                   >
                     {/* Rank Badge */}
                     <div className="absolute top-4 right-4">
                       <div
-                        className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-white shadow-lg ${
+                        className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-white shadow-md ${
                           idx === 0
-                            ? "bg-gradient-to-br from-yellow-400 to-orange-500"
+                            ? "bg-amber-500"
                             : idx === 1
-                              ? "bg-gradient-to-br from-gray-300 to-gray-400"
+                              ? "bg-slate-400"
                               : idx === 2
-                                ? "bg-gradient-to-br from-orange-300 to-orange-400"
-                                : "bg-gradient-to-br from-blue-600 to-blue-500"
+                                ? "bg-orange-400"
+                                : "bg-cyan-700"
                         }`}
                       >
                         #{idx + 1}
@@ -409,7 +411,7 @@ function Results() {
                     <div className="pr-16">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
-                          <h3 className="text-2xl font-bold text-gray-800 mb-2 group-hover:text-blue-600 transition-colors">
+                          <h3 className="text-2xl font-bold text-gray-800 mb-2 group-hover:text-slate-900 transition-colors">
                             {rec.title}
                           </h3>
                           <p className="text-gray-600 leading-relaxed">
@@ -417,7 +419,7 @@ function Results() {
                           </p>
                         </div>
                         <div className="ml-6 text-right">
-                          <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
+                          <div className="text-3xl font-bold text-cyan-800">
                             {(rec.similarity_score * 100).toFixed(0)}%
                           </div>
                           <div className="text-sm text-gray-500 font-medium">
@@ -427,19 +429,19 @@ function Results() {
                       </div>
 
                       <div className="grid grid-cols-2 gap-4 mt-6">
-                        <div className="p-3 bg-blue-50 rounded-xl">
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                           <p className="text-xs text-gray-600 mb-1">Domain</p>
-                          <p className="font-semibold text-blue-700">
+                          <p className="font-semibold text-slate-700">
                             {rec.domain && rec.domain !== "Unknown"
                               ? rec.domain
                               : "Not specified"}
                           </p>
                         </div>
-                        <div className="p-3 bg-blue-50 rounded-xl">
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                           <p className="text-xs text-gray-600 mb-1">
                             Salary Range
                           </p>
-                          <p className="font-semibold text-blue-700">
+                          <p className="font-semibold text-slate-700">
                             {rec.salary_range && rec.salary_range !== "N/A"
                               ? rec.salary_range
                               : "Not specified"}
@@ -457,7 +459,7 @@ function Results() {
                               {rec.required_skills.map((skill, i) => (
                                 <span
                                   key={i}
-                                  className="px-4 py-2 bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 rounded-full text-sm font-medium border border-blue-200"
+                                  className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-full text-sm font-medium border border-slate-200"
                                 >
                                   {skill}
                                 </span>

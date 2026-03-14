@@ -16,17 +16,60 @@ import {
 } from "@heroicons/react/24/outline";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+const MODEL_STATS_CACHE_KEY = "scrs-model-statistics-cache-v1";
+const MODEL_STATS_CACHE_TTL_MS = 1000 * 60 * 60 * 6;
+
+const readCachedModelStats = () => {
+  try {
+    const raw = localStorage.getItem(MODEL_STATS_CACHE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (!parsed?.data || !parsed?.timestamp) return null;
+
+    const isFresh = Date.now() - parsed.timestamp < MODEL_STATS_CACHE_TTL_MS;
+    if (!isFresh) return null;
+
+    return parsed.data;
+  } catch {
+    return null;
+  }
+};
+
+const writeCachedModelStats = (data) => {
+  try {
+    localStorage.setItem(
+      MODEL_STATS_CACHE_KEY,
+      JSON.stringify({
+        data,
+        timestamp: Date.now(),
+      }),
+    );
+  } catch {
+    // Ignore storage errors (private mode/quota exceeded)
+  }
+};
 
 function ModelStatistics() {
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState(() => readCachedModelStats());
+  const [loading, setLoading] = useState(() => !readCachedModelStats());
   const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchStatistics();
   }, []);
 
-  const fetchStatistics = async () => {
+  const fetchStatistics = async (forceRefresh = false) => {
+    if (!forceRefresh) {
+      const cached = readCachedModelStats();
+      if (cached) {
+        setStats(cached);
+        setLoading(false);
+        setError(null);
+        return;
+      }
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -41,10 +84,16 @@ function ModelStatistics() {
           timeout: 65000,
         },
       );
+
+      writeCachedModelStats(response.data);
       setStats(response.data);
     } catch (err) {
       console.error("Error fetching model statistics:", err);
-      setError(err.response?.data?.error || "Failed to fetch model statistics");
+      if (!stats) {
+        setError(
+          err.response?.data?.error || "Failed to fetch model statistics",
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -90,7 +139,7 @@ function ModelStatistics() {
             </h2>
             <p className="text-red-600 mb-4">{error}</p>
             <button
-              onClick={fetchStatistics}
+              onClick={() => fetchStatistics(true)}
               className="flex items-center space-x-2 mx-auto px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
             >
               <ArrowPathIcon className="w-5 h-5" />
@@ -120,21 +169,22 @@ function ModelStatistics() {
 
   return (
     <Layout>
-      <div className="space-y-6 animate-fadeIn">
+      <div className="space-y-6 animate-fadeIn page-shell">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="hero-panel flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">
+            <span className="hero-kicker">Model Lab</span>
+            <h1 className="text-3xl font-bold text-white mt-3">
               Model Statistics
             </h1>
-            <p className="text-slate-500 mt-1">
+            <p className="text-cyan-100 mt-1">
               Comprehensive comparison of KMeans++ and KMeans (Random)
               clustering algorithms
             </p>
           </div>
           <button
-            onClick={fetchStatistics}
-            className="flex items-center space-x-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
+            onClick={() => fetchStatistics(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-white/20 text-white rounded-lg border border-white/25 hover:bg-white/30 transition-colors"
           >
             <ArrowPathIcon className="w-5 h-5" />
             <span>Refresh</span>
@@ -147,8 +197,8 @@ function ModelStatistics() {
             className={`relative overflow-hidden rounded-2xl p-6 ${
               selectedAlgorithm === "kmeans_plus" ||
               selectedAlgorithm === "kmeans"
-                ? "bg-gradient-to-r from-blue-600 to-blue-500"
-                : "bg-gradient-to-r from-purple-600 to-purple-500"
+                ? "bg-gradient-to-r from-cyan-700 to-teal-600"
+                : "bg-gradient-to-r from-amber-700 to-orange-600"
             } text-white shadow-xl`}
           >
             <div className="relative z-10 flex items-center justify-between">
@@ -188,7 +238,7 @@ function ModelStatistics() {
               className={`bg-white rounded-xl border-2 p-6 transition-all ${
                 selectedAlgorithm === "kmeans_plus" ||
                 selectedAlgorithm === "kmeans"
-                  ? "border-blue-500 shadow-lg ring-2 ring-blue-200"
+                  ? "border-teal-500 shadow-lg ring-2 ring-teal-200"
                   : "border-slate-200"
               }`}
             >
@@ -198,7 +248,7 @@ function ModelStatistics() {
                     className={`w-12 h-12 rounded-xl flex items-center justify-center ${
                       selectedAlgorithm === "kmeans_plus" ||
                       selectedAlgorithm === "kmeans"
-                        ? "bg-blue-100"
+                        ? "bg-teal-100"
                         : "bg-slate-100"
                     }`}
                   >
@@ -206,7 +256,7 @@ function ModelStatistics() {
                       className={`w-7 h-7 ${
                         selectedAlgorithm === "kmeans_plus" ||
                         selectedAlgorithm === "kmeans"
-                          ? "text-blue-600"
+                          ? "text-teal-600"
                           : "text-slate-600"
                       }`}
                     />
@@ -222,7 +272,7 @@ function ModelStatistics() {
                 </div>
                 {(selectedAlgorithm === "kmeans_plus" ||
                   selectedAlgorithm === "kmeans") && (
-                  <div className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold flex items-center space-x-1">
+                  <div className="px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-xs font-semibold flex items-center space-x-1">
                     <TrophyIcon className="w-4 h-4" />
                     <span>SELECTED</span>
                   </div>
@@ -322,9 +372,9 @@ function ModelStatistics() {
                     Model Complexity
                   </h4>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between p-2 bg-blue-50 rounded-lg">
+                    <div className="flex items-center justify-between p-2 bg-teal-50 rounded-lg">
                       <span className="text-sm text-slate-600">Inertia</span>
-                      <span className="font-bold text-blue-700">
+                      <span className="font-bold text-teal-700">
                         {kmeansPlusMetrics.model_complexity.inertia?.toFixed(
                           2,
                         ) || "N/A"}
@@ -339,7 +389,7 @@ function ModelStatistics() {
             <div
               className={`bg-white rounded-xl border-2 p-6 transition-all ${
                 selectedAlgorithm === "kmeans_random"
-                  ? "border-purple-500 shadow-lg ring-2 ring-purple-200"
+                  ? "border-amber-500 shadow-lg ring-2 ring-amber-200"
                   : "border-slate-200"
               }`}
             >
@@ -348,14 +398,14 @@ function ModelStatistics() {
                   <div
                     className={`w-12 h-12 rounded-xl flex items-center justify-center ${
                       selectedAlgorithm === "kmeans_random"
-                        ? "bg-purple-100"
+                        ? "bg-amber-100"
                         : "bg-slate-100"
                     }`}
                   >
                     <SparklesIcon
                       className={`w-7 h-7 ${
                         selectedAlgorithm === "kmeans_random"
-                          ? "text-purple-600"
+                          ? "text-amber-600"
                           : "text-slate-600"
                       }`}
                     />
@@ -370,7 +420,7 @@ function ModelStatistics() {
                   </div>
                 </div>
                 {selectedAlgorithm === "kmeans_random" && (
-                  <div className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold flex items-center space-x-1">
+                  <div className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold flex items-center space-x-1">
                     <TrophyIcon className="w-4 h-4" />
                     <span>SELECTED</span>
                   </div>
@@ -471,9 +521,9 @@ function ModelStatistics() {
                     Model Complexity
                   </h4>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between p-2 bg-purple-50 rounded-lg">
+                    <div className="flex items-center justify-between p-2 bg-amber-50 rounded-lg">
                       <span className="text-sm text-slate-600">Inertia</span>
-                      <span className="font-bold text-purple-700">
+                      <span className="font-bold text-amber-700">
                         {kmeansRandomMetrics.model_complexity.inertia?.toFixed(
                           2,
                         ) || "N/A"}
