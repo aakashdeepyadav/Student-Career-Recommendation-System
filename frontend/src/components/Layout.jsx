@@ -163,11 +163,6 @@ function Layout({ children }) {
                 </h1>
               </div>
             </Link>
-            <div className="mt-4 rounded-xl border border-cyan-100 bg-cyan-50/60 px-3 py-2">
-              <p className="text-[11px] uppercase tracking-[0.08em] text-cyan-800 font-semibold">
-                Live Assessment Workspace
-              </p>
-            </div>
           </div>
 
           {/* Navigation */}
@@ -208,7 +203,7 @@ function Layout({ children }) {
             {children}
             <footer className="mt-10 pt-6 border-t border-slate-200/70">
               <p className="text-center text-xs sm:text-sm text-slate-500 tracking-tight">
-                Made by Aakash with love ❤️
+                Made by Aakash ❤️
               </p>
             </footer>
           </div>
