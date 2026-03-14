@@ -161,9 +161,6 @@ function Layout({ children }) {
                 <h1 className="text-xl font-bold text-slate-900 leading-tight">
                   Student Career Recommendation System
                 </h1>
-                <p className="text-xs text-slate-500 leading-snug mt-1">
-                  Made by Aakash Deep Yadav with love
-                </p>
               </div>
             </Link>
             <div className="mt-4 rounded-xl border border-cyan-100 bg-cyan-50/60 px-3 py-2">
@@ -211,7 +208,7 @@ function Layout({ children }) {
             {children}
             <footer className="mt-10 pt-6 border-t border-slate-200/70">
               <p className="text-center text-xs sm:text-sm text-slate-500 tracking-tight">
-                Made by Aakash Deep Yadav with love.
+                Made by Aakash with love ❤️
               </p>
             </footer>
           </div>

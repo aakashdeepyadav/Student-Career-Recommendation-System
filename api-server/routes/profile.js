@@ -6,6 +6,16 @@ const rawMlEngineUrl = process.env.ML_ENGINE_URL || 'http://localhost:8001';
 const ML_ENGINE_URL = /^https?:\/\//i.test(rawMlEngineUrl)
   ? rawMlEngineUrl
   : `http://${rawMlEngineUrl}`;
+const ML_REQUEST_TIMEOUT_MS = 65000;
+const ML_TRANSIENT_RETRY_COUNT = 2;
+const RETRYABLE_UPSTREAM_STATUS_CODES = new Set([502, 503, 504]);
+const RETRYABLE_NETWORK_ERROR_CODES = new Set([
+  'ECONNABORTED',
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ERR_NETWORK',
+  'ETIMEDOUT'
+]);
 
 const SKILL_KEYS = [
   'programming',
@@ -92,30 +102,66 @@ function normalizeSkills(rawSkills) {
   return userSkills;
 }
 
+function isRetryableMlError(error) {
+  const statusCode = error?.response?.status;
+  if (statusCode && RETRYABLE_UPSTREAM_STATUS_CODES.has(statusCode)) {
+    return true;
+  }
+
+  const code = error?.code;
+  return Boolean(code && RETRYABLE_NETWORK_ERROR_CODES.has(code));
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withMlRetry(requestFn) {
+  let lastError;
+
+  for (let attempt = 0; attempt <= ML_TRANSIENT_RETRY_COUNT; attempt += 1) {
+    try {
+      return await requestFn();
+    } catch (error) {
+      lastError = error;
+      const shouldRetry =
+        attempt < ML_TRANSIENT_RETRY_COUNT && isRetryableMlError(error);
+
+      if (!shouldRetry) {
+        throw error;
+      }
+
+      await sleep(1200 * (attempt + 1));
+    }
+  }
+
+  throw lastError;
+}
+
 async function runRecommendationPipeline(riasecResponses, skillResponses, subjectPreferences) {
-  const profileResponse = await axios.post(`${ML_ENGINE_URL}/profile`, {
+  const profileResponse = await withMlRetry(() => axios.post(`${ML_ENGINE_URL}/profile`, {
     riasec_responses: riasecResponses,
     skill_responses: skillResponses,
     subject_preferences: subjectPreferences
-  });
+  }, { timeout: ML_REQUEST_TIMEOUT_MS }));
   const profileData = profileResponse.data;
 
-  const clusterResponse = await axios.post(`${ML_ENGINE_URL}/cluster`, {
+  const clusterResponse = await withMlRetry(() => axios.post(`${ML_ENGINE_URL}/cluster`, {
     combined_vector: profileData.combined_vector
-  });
+  }, { timeout: ML_REQUEST_TIMEOUT_MS }));
   const clusterData = clusterResponse.data;
 
-  const recommendationsResponse = await axios.post(`${ML_ENGINE_URL}/recommend`, {
+  const recommendationsResponse = await withMlRetry(() => axios.post(`${ML_ENGINE_URL}/recommend`, {
     combined_vector: profileData.combined_vector,
     user_skills: normalizeSkills(profileData.skills || skillResponses),
     top_k: 5
-  });
+  }, { timeout: ML_REQUEST_TIMEOUT_MS }));
   const recommendations = recommendationsResponse.data;
 
-  const visualizationResponse = await axios.post(`${ML_ENGINE_URL}/visualize`, {
+  const visualizationResponse = await withMlRetry(() => axios.post(`${ML_ENGINE_URL}/visualize`, {
     combined_vector: profileData.combined_vector,
     recommended_career_ids: recommendations.map((r) => r.career_id)
-  });
+  }, { timeout: ML_REQUEST_TIMEOUT_MS }));
 
   return {
     profile: profileData,
@@ -146,6 +192,14 @@ router.post('/submit-public', async (req, res) => {
     res.json(response);
   } catch (error) {
     console.error('Public assessment submission error:', error.message);
+
+    if (isRetryableMlError(error)) {
+      return res.status(503).json({
+        error: 'Assessment service is warming up. Please retry in a few seconds.',
+        details: error.response?.data || error.message
+      });
+    }
+
     res.status(500).json({
       error: error.message,
       details: error.response?.data

@@ -1,9 +1,11 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import axios from 'axios';
+import { waitForAppWarmup } from '../lib/initAppWarmup';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 const SUBMIT_RETRY_COUNT = 2;
+const SUBMIT_RETRYABLE_STATUS_CODES = new Set([502, 503, 504]);
 
 const useProfileStore = create(
   persist(
@@ -45,6 +47,7 @@ const useProfileStore = create(
     
     try {
       const submitPath = '/assessment/submit-public';
+      await waitForAppWarmup();
 
       updateStep(0);
       updateStep(3);
@@ -73,7 +76,8 @@ const useProfileStore = create(
           lastError = error;
           const statusCode = error?.response?.status;
           const shouldRetry =
-            statusCode === 503 && attempt < SUBMIT_RETRY_COUNT;
+            attempt < SUBMIT_RETRY_COUNT &&
+            (!statusCode || SUBMIT_RETRYABLE_STATUS_CODES.has(statusCode));
 
           if (!shouldRetry) {
             throw error;
