@@ -203,7 +203,7 @@ function Layout({ children }) {
             {children}
             <footer className="mt-10 pt-6 border-t border-slate-200/70">
               <p className="text-center text-xs sm:text-sm text-slate-500 tracking-tight">
-                Made by Aakash ❤️
+                Made with ❤️ by Aakash.
               </p>
             </footer>
           </div>
