@@ -63,9 +63,13 @@ Required environment variables in api-server/.env:
 
 ```env
 ML_ENGINE_URL=http://localhost:8001
+ML_ENGINE_ROUTE_PREFIXES=,/api
 PORT=3000
 FRONTEND_URL=http://localhost:5173
 ```
+
+`ML_ENGINE_ROUTE_PREFIXES` is optional and defaults to `,/api`.
+It allows the API server to try ML endpoints at both `/...` and `/api/...` when deployed behind a prefixed proxy.
 
 Questionnaire submissions go through:
 

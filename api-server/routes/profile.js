@@ -8,6 +8,11 @@ const ML_ENGINE_URL = /^https?:\/\//i.test(rawMlEngineUrl)
   : `http://${rawMlEngineUrl}`;
 const ML_REQUEST_TIMEOUT_MS = 65000;
 const ML_TRANSIENT_RETRY_COUNT = 2;
+const mlRoutePrefixCandidates = (process.env.ML_ENGINE_ROUTE_PREFIXES || ',/api')
+  .split(',')
+  .map((prefix) => prefix.trim())
+  .filter((prefix, index, arr) => prefix || index === 0 || arr[index - 1] !== '');
+let activeMlRoutePrefix = null;
 const RETRYABLE_UPSTREAM_STATUS_CODES = new Set([502, 503, 504]);
 const RETRYABLE_NETWORK_ERROR_CODES = new Set([
   'ECONNABORTED',
@@ -116,6 +121,56 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function normalizeMlRoutePrefix(prefix) {
+  const trimmed = (prefix || '').trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  const withLeadingSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return withLeadingSlash.endsWith('/')
+    ? withLeadingSlash.slice(0, -1)
+    : withLeadingSlash;
+}
+
+function getMlRoutePrefixCandidates() {
+  const normalized = mlRoutePrefixCandidates
+    .map(normalizeMlRoutePrefix)
+    .filter((prefix, index, arr) => arr.indexOf(prefix) === index);
+
+  if (activeMlRoutePrefix && normalized.includes(activeMlRoutePrefix)) {
+    return [activeMlRoutePrefix, ...normalized.filter((prefix) => prefix !== activeMlRoutePrefix)];
+  }
+
+  return normalized.length > 0 ? normalized : [''];
+}
+
+function buildMlUrl(pathname, routePrefix = '') {
+  const normalizedPath = pathname.startsWith('/') ? pathname : `/${pathname}`;
+  return `${ML_ENGINE_URL}${routePrefix}${normalizedPath}`;
+}
+
+async function requestMlWithRouteFallback(requestFactory) {
+  const candidates = getMlRoutePrefixCandidates();
+  let lastError;
+
+  for (const routePrefix of candidates) {
+    try {
+      const result = await withMlRetry(() => requestFactory(routePrefix));
+      activeMlRoutePrefix = routePrefix;
+      return result;
+    } catch (error) {
+      lastError = error;
+      const statusCode = error?.response?.status;
+      if (statusCode !== 404) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 async function withMlRetry(requestFn) {
   let lastError;
 
@@ -139,12 +194,16 @@ async function withMlRetry(requestFn) {
 }
 
 async function runRecommendationPipeline(riasecResponses, skillResponses, subjectPreferences) {
-  const assessResponse = await withMlRetry(() => axios.post(`${ML_ENGINE_URL}/assess`, {
-    riasec_responses: riasecResponses,
-    skill_responses: skillResponses,
-    subject_preferences: subjectPreferences,
-    top_k: 5
-  }, { timeout: ML_REQUEST_TIMEOUT_MS }));
+  const assessResponse = await requestMlWithRouteFallback((routePrefix) => axios.post(
+    buildMlUrl('/assess', routePrefix),
+    {
+      riasec_responses: riasecResponses,
+      skill_responses: skillResponses,
+      subject_preferences: subjectPreferences,
+      top_k: 5
+    },
+    { timeout: ML_REQUEST_TIMEOUT_MS }
+  ));
   const assessData = assessResponse.data;
 
   return {
@@ -158,10 +217,14 @@ async function runRecommendationPipeline(riasecResponses, skillResponses, subjec
 }
 
 async function runVisualizationPipeline(combinedVector, recommendedCareerIds = []) {
-  const visualizationResponse = await withMlRetry(() => axios.post(`${ML_ENGINE_URL}/visualize`, {
-    combined_vector: combinedVector,
-    recommended_career_ids: recommendedCareerIds
-  }, { timeout: ML_REQUEST_TIMEOUT_MS }));
+  const visualizationResponse = await requestMlWithRouteFallback((routePrefix) => axios.post(
+    buildMlUrl('/visualize', routePrefix),
+    {
+      combined_vector: combinedVector,
+      recommended_career_ids: recommendedCareerIds
+    },
+    { timeout: ML_REQUEST_TIMEOUT_MS }
+  ));
 
   return visualizationResponse.data;
 }
@@ -184,6 +247,13 @@ router.post('/submit-public', async (req, res) => {
     res.json(response);
   } catch (error) {
     console.error('Public assessment submission error:', error.message);
+
+    if (error?.response?.status === 404) {
+      return res.status(502).json({
+        error: 'Assessment endpoint not found on ML service.',
+        details: error.response?.data || error.message
+      });
+    }
 
     if (isRetryableMlError(error)) {
       return res.status(503).json({
@@ -232,7 +302,10 @@ router.post('/visualize-public', async (req, res) => {
 
 router.get('/model-statistics', async (req, res) => {
   try {
-    const response = await axios.get(`${ML_ENGINE_URL}/model-statistics`, { timeout: 60000 });
+    const response = await requestMlWithRouteFallback((routePrefix) => axios.get(
+      buildMlUrl('/model-statistics', routePrefix),
+      { timeout: 60000 }
+    ));
     res.json(response.data);
   } catch (error) {
     console.error('Error fetching model statistics:', error.message);
@@ -254,10 +327,16 @@ router.get('/warmup', async (req, res) => {
   const startedAt = Date.now();
 
   try {
-    const checks = await Promise.allSettled([
-      axios.get(`${ML_ENGINE_URL}/health`, { timeout: 45000 }),
-      axios.get(`${ML_ENGINE_URL}/`, { timeout: 45000 })
-    ]);
+    const healthCheck = requestMlWithRouteFallback((routePrefix) => axios.get(
+      buildMlUrl('/health', routePrefix),
+      { timeout: 45000 }
+    ));
+    const rootCheck = requestMlWithRouteFallback((routePrefix) => axios.get(
+      buildMlUrl('/', routePrefix),
+      { timeout: 45000 }
+    ));
+
+    const checks = await Promise.allSettled([healthCheck, rootCheck]);
 
     const healthReady = checks[0].status === 'fulfilled';
     const rootReady = checks[1].status === 'fulfilled';
