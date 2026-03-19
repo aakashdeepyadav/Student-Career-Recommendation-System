@@ -139,39 +139,31 @@ async function withMlRetry(requestFn) {
 }
 
 async function runRecommendationPipeline(riasecResponses, skillResponses, subjectPreferences) {
-  const profileResponse = await withMlRetry(() => axios.post(`${ML_ENGINE_URL}/profile`, {
+  const assessResponse = await withMlRetry(() => axios.post(`${ML_ENGINE_URL}/assess`, {
     riasec_responses: riasecResponses,
     skill_responses: skillResponses,
-    subject_preferences: subjectPreferences
-  }, { timeout: ML_REQUEST_TIMEOUT_MS }));
-  const profileData = profileResponse.data;
-
-  const clusterResponse = await withMlRetry(() => axios.post(`${ML_ENGINE_URL}/cluster`, {
-    combined_vector: profileData.combined_vector
-  }, { timeout: ML_REQUEST_TIMEOUT_MS }));
-  const clusterData = clusterResponse.data;
-
-  const recommendationsResponse = await withMlRetry(() => axios.post(`${ML_ENGINE_URL}/recommend`, {
-    combined_vector: profileData.combined_vector,
-    user_skills: normalizeSkills(profileData.skills || skillResponses),
+    subject_preferences: subjectPreferences,
     top_k: 5
   }, { timeout: ML_REQUEST_TIMEOUT_MS }));
-  const recommendations = recommendationsResponse.data;
-
-  const visualizationResponse = await withMlRetry(() => axios.post(`${ML_ENGINE_URL}/visualize`, {
-    combined_vector: profileData.combined_vector,
-    recommended_career_ids: recommendations.map((r) => r.career_id)
-  }, { timeout: ML_REQUEST_TIMEOUT_MS }));
+  const assessData = assessResponse.data;
 
   return {
-    profile: profileData,
+    profile: assessData.profile,
     cluster: {
-      ...clusterData,
-      algorithm_used: clusterData.algorithm_used || null
+      ...(assessData.cluster || {}),
+      algorithm_used: assessData?.cluster?.algorithm_used || null
     },
-    recommendations,
-    visualization: visualizationResponse.data
+    recommendations: assessData.recommendations || []
   };
+}
+
+async function runVisualizationPipeline(combinedVector, recommendedCareerIds = []) {
+  const visualizationResponse = await withMlRetry(() => axios.post(`${ML_ENGINE_URL}/visualize`, {
+    combined_vector: combinedVector,
+    recommended_career_ids: recommendedCareerIds
+  }, { timeout: ML_REQUEST_TIMEOUT_MS }));
+
+  return visualizationResponse.data;
 }
 
 router.post('/submit-public', async (req, res) => {
@@ -196,6 +188,37 @@ router.post('/submit-public', async (req, res) => {
     if (isRetryableMlError(error)) {
       return res.status(503).json({
         error: 'Assessment service is warming up. Please retry in a few seconds.',
+        details: error.response?.data || error.message
+      });
+    }
+
+    res.status(500).json({
+      error: error.message,
+      details: error.response?.data
+    });
+  }
+});
+
+router.post('/visualize-public', async (req, res) => {
+  try {
+    const { combined_vector, recommended_career_ids } = req.body || {};
+
+    if (!Array.isArray(combined_vector) || combined_vector.length === 0) {
+      return res.status(400).json({ error: 'combined_vector must be a non-empty array' });
+    }
+
+    const visualization = await runVisualizationPipeline(
+      combined_vector,
+      Array.isArray(recommended_career_ids) ? recommended_career_ids : []
+    );
+
+    res.json({ visualization });
+  } catch (error) {
+    console.error('Public visualization error:', error.message);
+
+    if (isRetryableMlError(error)) {
+      return res.status(503).json({
+        error: 'Visualization service is warming up. Please retry in a few seconds.',
         details: error.response?.data || error.message
       });
     }
@@ -233,12 +256,12 @@ router.get('/warmup', async (req, res) => {
   try {
     const checks = await Promise.allSettled([
       axios.get(`${ML_ENGINE_URL}/health`, { timeout: 45000 }),
-      axios.get(`${ML_ENGINE_URL}/model-statistics`, { timeout: 60000 })
+      axios.get(`${ML_ENGINE_URL}/`, { timeout: 45000 })
     ]);
 
     const healthReady = checks[0].status === 'fulfilled';
-    const statsReady = checks[1].status === 'fulfilled';
-    const ready = healthReady && statsReady;
+    const rootReady = checks[1].status === 'fulfilled';
+    const ready = healthReady && rootReady;
 
     if (!ready) {
       return res.status(503).json({
@@ -246,7 +269,7 @@ router.get('/warmup', async (req, res) => {
         ready,
         checks: {
           health: healthReady,
-          model_statistics: statsReady
+          root: rootReady
         },
         duration_ms: Date.now() - startedAt,
         detail: 'ML engine is still warming up. Please retry shortly.'
@@ -258,7 +281,7 @@ router.get('/warmup', async (req, res) => {
       ready: true,
       checks: {
         health: true,
-        model_statistics: true
+        root: true
       },
       duration_ms: Date.now() - startedAt
     });

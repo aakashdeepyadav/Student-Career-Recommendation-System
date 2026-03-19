@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import Layout from "../components/Layout";
 import useProfileStore from "../store/profileStore";
@@ -22,8 +22,23 @@ import {
 } from "@heroicons/react/24/outline";
 
 function Results() {
-  const { profile, recommendations, cluster, visualization, loading, error } =
-    useProfileStore();
+  const {
+    profile,
+    recommendations,
+    cluster,
+    visualization,
+    loading,
+    error,
+    loadingVisualization,
+    visualizationError,
+    fetchVisualization,
+  } = useProfileStore();
+
+  useEffect(() => {
+    if (profile?.combined_vector && !visualization && !loadingVisualization) {
+      fetchVisualization();
+    }
+  }, [profile, visualization, loadingVisualization, fetchVisualization]);
 
   // Calculate statistics overview cards - must be at top level (Rules of Hooks)
   const statisticsCards = useMemo(() => {
@@ -367,10 +382,19 @@ function Results() {
           <div className="section-panel p-8">
             <div className="text-center py-8">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent mb-4"></div>
-              <p className="text-gray-600">Loading visualization data...</p>
+              <p className="text-gray-600">
+                {loadingVisualization
+                  ? "Loading visualization data..."
+                  : "Preparing visualization data..."}
+              </p>
               <p className="text-sm text-gray-500 mt-2">
                 This may take a few moments
               </p>
+              {visualizationError && (
+                <p className="text-sm text-red-600 mt-3">
+                  {visualizationError}
+                </p>
+              )}
             </div>
           </div>
         )}

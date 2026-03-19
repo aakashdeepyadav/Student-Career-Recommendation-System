@@ -6,7 +6,7 @@ Main API server for ML operations.
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import numpy as np
 import os
 from dotenv import load_dotenv
@@ -48,6 +48,19 @@ profile_processor = ProfileProcessor()
 clusterer = StudentClusterer(algorithm='kmeans_plus')
 embedding_reducer = EmbeddingReducer()
 similarity_engine = SimilarityEngine()
+
+visualization_cache: Dict[str, Any] = {
+    "ready": False,
+    "careers_2d": [],
+    "careers_3d": [],
+    "career_titles": [],
+    "career_ids": [],
+    "clusters_2d": None,
+    "clusters_3d": None,
+    "students_2d": None,
+    "students_3d": None,
+    "student_clusters": None,
+}
 
 # Load careers
 careers_data = data_loader.load_careers()
@@ -98,6 +111,110 @@ if len(students_data) > 0:
             print("   Run 'python train_models.py' to train models")
 
 
+def to_model_vector(career_embedding: np.ndarray, target_dim: int) -> np.ndarray:
+    """Convert career embedding to the same dimensionality as user vectors."""
+    if len(career_embedding) >= 16:
+        riasec_skills = career_embedding[-16:]
+        subjects = np.array([0.0, 0.0, 0.0, 0.0], dtype=float)
+        return np.concatenate([riasec_skills, subjects]).reshape(1, -1)
+
+    if len(career_embedding) == target_dim:
+        return career_embedding.reshape(1, -1)
+
+    if len(career_embedding) < target_dim:
+        return np.pad(career_embedding, (0, target_dim - len(career_embedding)), 'constant').reshape(1, -1)
+
+    return career_embedding[:target_dim].reshape(1, -1)
+
+
+def get_active_cluster_model():
+    algo = clusterer.get_active_algorithm()
+    if algo == 'kmeans_plus' or algo == 'kmeans':
+        return clusterer.kmeans_plus, algo
+    if algo == 'kmeans_random':
+        return clusterer.kmeans_random, algo
+    return None, algo
+
+
+def build_visualization_cache() -> None:
+    """Precompute static visualization data so request-time work stays minimal."""
+    if embedding_reducer.pca_2d is None or embedding_reducer.umap_3d is None:
+        print("[CACHE] Visualization cache skipped: reducers unavailable")
+        return
+
+    target_dim = 20
+    if len(students_data) > 0:
+        student_vectors = np.array([s.get('combined_vector', []) for s in students_data if 'combined_vector' in s])
+        if len(student_vectors) > 0 and student_vectors.shape[1] > 0:
+            target_dim = int(student_vectors.shape[1])
+
+    careers_2d = []
+    careers_3d = []
+    career_titles = []
+    career_ids = []
+
+    for i, career in enumerate(careers_data):
+        career_embedding = np.array(career.get('embedding', []))
+        if len(career_embedding) == 0:
+            continue
+
+        try:
+            career_vector = to_model_vector(career_embedding, target_dim)
+            career_2d = embedding_reducer.transform_2d(career_vector)[0].tolist()
+            career_3d = embedding_reducer.transform_3d(career_vector)[0].tolist()
+        except Exception as e:
+            print(f"[CACHE] Skipping career transform at index {i}: {e}")
+            continue
+
+        careers_2d.append(career_2d)
+        careers_3d.append(career_3d)
+        career_titles.append(career.get('title', f'Career {i + 1}'))
+        career_ids.append(str(career.get('id')) if career.get('id') is not None else None)
+
+    clusters_2d = None
+    clusters_3d = None
+    students_2d = None
+    students_3d = None
+    student_clusters = None
+    active_model, active_algo = get_active_cluster_model()
+
+    try:
+        if active_model is not None:
+            cluster_centers = clusterer.get_cluster_centers()
+            clusters_2d = embedding_reducer.transform_2d(cluster_centers).tolist()
+            clusters_3d = embedding_reducer.transform_3d(cluster_centers).tolist()
+    except Exception as e:
+        print(f"[CACHE] Cluster center transform warning: {e}")
+
+    try:
+        if len(students_data) > 0 and active_model is not None:
+            student_vectors = np.array([s.get('combined_vector', []) for s in students_data if 'combined_vector' in s])
+            if len(student_vectors) > 0:
+                students_2d = embedding_reducer.transform_2d(student_vectors).tolist()
+                students_3d = embedding_reducer.transform_3d(student_vectors).tolist()
+                if active_algo == 'kmeans_plus' or active_algo == 'kmeans':
+                    student_clusters = clusterer.kmeans_plus.predict(student_vectors).tolist()
+                elif active_algo == 'kmeans_random':
+                    student_clusters = clusterer.kmeans_random.predict(student_vectors).tolist()
+    except Exception as e:
+        print(f"[CACHE] Student transform warning: {e}")
+
+    visualization_cache["ready"] = True
+    visualization_cache["careers_2d"] = careers_2d
+    visualization_cache["careers_3d"] = careers_3d
+    visualization_cache["career_titles"] = career_titles
+    visualization_cache["career_ids"] = career_ids
+    visualization_cache["clusters_2d"] = clusters_2d
+    visualization_cache["clusters_3d"] = clusters_3d
+    visualization_cache["students_2d"] = students_2d
+    visualization_cache["students_3d"] = students_3d
+    visualization_cache["student_clusters"] = student_clusters
+    print(f"[CACHE] Visualization cache ready: careers={len(careers_2d)}, students={len(students_2d) if students_2d else 0}")
+
+
+build_visualization_cache()
+
+
 # Request/Response Models
 class QuestionnaireRequest(BaseModel):
     riasec_responses: Dict[str, int]
@@ -123,6 +240,16 @@ class RecommendationResponse(BaseModel):
     salary_range: str
     required_skills: List[str]
     skill_gaps: Dict[str, float]
+
+
+class AssessRequest(QuestionnaireRequest):
+    top_k: int = 5
+
+
+class AssessResponse(BaseModel):
+    profile: ProfileResponse
+    cluster: Dict[str, Any]
+    recommendations: List[RecommendationResponse]
 
 
 class ClusterRequest(BaseModel):
@@ -151,9 +278,117 @@ class VisualizationResponse(BaseModel):
     recommended_career_indices: Optional[List[int]] = None
 
 
+SKILL_NAMES = [
+    'programming', 'problem_solving', 'communication', 'creativity',
+    'leadership', 'analytical', 'mathematics', 'design', 'research', 'teamwork'
+]
+
+
+def normalize_user_skills(raw_skills: Optional[Dict[str, float]]) -> Dict[str, float]:
+    """Normalize skill values to 0-1 regardless of incoming format."""
+    normalized: Dict[str, float] = {}
+    for skill_name, value in (raw_skills or {}).items():
+        try:
+            num_value = float(value)
+        except (TypeError, ValueError):
+            continue
+
+        if num_value > 1.0:
+            num_value = (num_value - 1.0) / 4.0
+
+        normalized[skill_name] = max(0.0, min(1.0, num_value))
+    return normalized
+
+
+def extract_user_skills_for_recommendation(
+    user_vector: np.ndarray,
+    provided_skills: Optional[Dict[str, float]],
+) -> Dict[str, float]:
+    user_skills_dict = normalize_user_skills(provided_skills)
+
+    if user_skills_dict and len(user_skills_dict) > 0:
+        print(f"[SKILL_GAP] Using provided user_skills: {user_skills_dict}")
+        print(f"[SKILL_GAP] Number of user skills: {len(user_skills_dict)}")
+        print(f"[SKILL_GAP] User skill values: {[(k, f'{v:.2f}') for k, v in user_skills_dict.items()]}")
+        return user_skills_dict
+
+    # Extract from combined_vector (skills are at indices 6-15)
+    skill_vector = user_vector[6:16] if len(user_vector) >= 16 else np.zeros(10)
+    for idx, skill_name in enumerate(SKILL_NAMES):
+        if idx < len(skill_vector):
+            user_skills_dict[skill_name] = float(skill_vector[idx])
+
+    print(f"[SKILL_GAP] Extracted from vector (fallback): {user_skills_dict}")
+    print(f"[SKILL_GAP] WARNING: Using fallback extraction - user_skills from request was: {provided_skills}")
+    return user_skills_dict
+
+
+def build_recommendation_response(
+    user_vector: np.ndarray,
+    user_skills: Optional[Dict[str, float]],
+    top_k: int = 5,
+) -> List[RecommendationResponse]:
+    recommendations = similarity_engine.recommend_careers(
+        user_vector,
+        careers_data,
+        top_k
+    )
+
+    user_skills_dict = extract_user_skills_for_recommendation(user_vector, user_skills)
+
+    if len(user_skills_dict) == 0:
+        print(f"[SKILL_GAP ERROR] user_skills_dict is EMPTY! Cannot calculate gaps.")
+        print(f"[SKILL_GAP ERROR] user_skills input was: {user_skills}")
+        print(f"[SKILL_GAP ERROR] user_skills type: {type(user_skills)}")
+        print(f"[SKILL_GAP ERROR] This will cause all skill gaps to be 0.8 (required - 0)")
+
+    result: List[RecommendationResponse] = []
+    for rec in recommendations:
+        career_skills_list = rec.get('skills', [])
+
+        required_skills = {}
+        for skill_name in career_skills_list:
+            required_skills[skill_name] = 0.8
+
+        print(f"[SKILL_GAP] Computing gaps for {rec['title']}")
+        print(f"[SKILL_GAP] Required skills: {required_skills}")
+        skill_gaps = similarity_engine.compute_skill_gap(user_skills_dict, required_skills)
+
+        if len(skill_gaps) > 0:
+            print(f"[SKILL_GAP] {rec['title']}: {len(skill_gaps)} gaps calculated")
+            for skill, gap in skill_gaps.items():
+                print(f"[SKILL_GAP]   - {skill}: {gap:.2f} ({int(gap*100)}%)")
+        else:
+            print(f"[SKILL_GAP] {rec['title']}: No gaps (all skills matched or below threshold)")
+            print(f"[SKILL_GAP]   Required: {list(required_skills.keys())}")
+            print(f"[SKILL_GAP]   User has: {list(user_skills_dict.keys())}")
+
+        result.append(RecommendationResponse(
+            career_id=rec['id'],
+            title=rec['title'],
+            description=rec['description'],
+            similarity_score=rec['similarity_score'],
+            domain=rec.get('domain', 'Unknown'),
+            salary_range=rec.get('salary_range', 'N/A'),
+            required_skills=career_skills_list,
+            skill_gaps=skill_gaps
+        ))
+
+    return result
+
+
 @app.get("/")
 async def root():
     return {"message": "SCRS ML Engine API", "version": "1.0.0"}
+
+
+@app.get("/health")
+async def health():
+    return {
+        "status": "ok",
+        "models_ready": embedding_reducer.pca_2d is not None and embedding_reducer.umap_3d is not None,
+        "cache_ready": visualization_cache.get("ready", False),
+    }
 
 
 @app.post("/profile", response_model=ProfileResponse)
@@ -221,78 +456,58 @@ async def recommend_careers(request: RecommendRequest):
     """Get career recommendations based on similarity."""
     try:
         user_vector = np.array(request.combined_vector)
-        
-        recommendations = similarity_engine.recommend_careers(
-            user_vector,
-            careers_data,
+        return build_recommendation_response(user_vector, request.user_skills, request.top_k)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/assess", response_model=AssessResponse)
+async def assess_profile(request: AssessRequest):
+    """Process questionnaire, assign cluster, and return recommendations in one call."""
+    try:
+        profile = profile_processor.process_profile(
+            request.riasec_responses,
+            request.skill_responses,
+            request.subject_preferences
+        )
+
+        vector = np.array(profile.get("combined_vector", []), dtype=float)
+        if vector.size == 0:
+            raise HTTPException(status_code=400, detail="Profile generation failed: combined_vector is empty")
+
+        active_model, active_algorithm = get_active_cluster_model()
+        if active_model is None:
+            cluster_payload = {
+                "cluster_id": 0,
+                "cluster_name": "Not Classified (Model not trained)",
+                "algorithm_used": None
+            }
+        else:
+            cluster_id, cluster_name = clusterer.predict(vector)
+            cluster_payload = {
+                "cluster_id": int(cluster_id),
+                "cluster_name": cluster_name,
+                "algorithm_used": active_algorithm
+            }
+
+            probs = clusterer.predict_proba(vector)
+            if probs is not None:
+                cluster_payload["cluster_probabilities"] = {
+                    clusterer.cluster_names[i]: float(prob)
+                    for i, prob in enumerate(probs)
+                }
+
+        recommendations = build_recommendation_response(
+            vector,
+            profile.get("skills") or request.skill_responses,
             request.top_k
         )
-        
-        # Extract user skills - prioritize provided user_skills, fallback to vector extraction
-        user_skills_dict = {}
-        if request.user_skills and isinstance(request.user_skills, dict) and len(request.user_skills) > 0:
-            # Use provided user_skills (already normalized 0-1)
-            user_skills_dict = request.user_skills
-            print(f"[SKILL_GAP] Using provided user_skills: {user_skills_dict}")
-            print(f"[SKILL_GAP] Number of user skills: {len(user_skills_dict)}")
-            print(f"[SKILL_GAP] User skill values: {[(k, f'{v:.2f}') for k, v in user_skills_dict.items()]}")
-        else:
-            # Extract from combined_vector (skills are at indices 6-15)
-            skill_vector = user_vector[6:16] if len(user_vector) >= 16 else np.zeros(10)
-            skill_names = ['programming', 'problem_solving', 'communication', 'creativity', 
-                          'leadership', 'analytical', 'mathematics', 'design', 'research', 'teamwork']
-            for idx, skill_name in enumerate(skill_names):
-                if idx < len(skill_vector):
-                    user_skills_dict[skill_name] = float(skill_vector[idx])
-            print(f"[SKILL_GAP] Extracted from vector (fallback): {user_skills_dict}")
-            print(f"[SKILL_GAP] WARNING: Using fallback extraction - user_skills from request was: {request.user_skills}")
-        
-        if len(user_skills_dict) == 0:
-            print(f"[SKILL_GAP ERROR] user_skills_dict is EMPTY! Cannot calculate gaps.")
-            print(f"[SKILL_GAP ERROR] Request.user_skills was: {request.user_skills}")
-            print(f"[SKILL_GAP ERROR] Request.user_skills type: {type(request.user_skills)}")
-            print(f"[SKILL_GAP ERROR] This will cause all skill gaps to be 0.8 (required - 0)")
-        
-        result = []
-        for rec in recommendations:
-            # Get career required skills
-            career_skills_list = rec.get('skills', [])
-            
-            # Map career skill names to required skill levels
-            # Career skills are stored as names, map them to required levels (0.8 = high requirement)
-            required_skills = {}
-            for skill_name in career_skills_list:
-                # Set required level (0.8 = high requirement for listed skills)
-                # The similarity engine will handle name matching
-                required_skills[skill_name] = 0.8
-            
-            # Compute actual skill gaps
-            print(f"[SKILL_GAP] Computing gaps for {rec['title']}")
-            print(f"[SKILL_GAP] Required skills: {required_skills}")
-            skill_gaps = similarity_engine.compute_skill_gap(user_skills_dict, required_skills)
-            
-            # Log for debugging
-            if len(skill_gaps) > 0:
-                print(f"[SKILL_GAP] {rec['title']}: {len(skill_gaps)} gaps calculated")
-                for skill, gap in skill_gaps.items():
-                    print(f"[SKILL_GAP]   - {skill}: {gap:.2f} ({int(gap*100)}%)")
-            else:
-                print(f"[SKILL_GAP] {rec['title']}: No gaps (all skills matched or below threshold)")
-                print(f"[SKILL_GAP]   Required: {list(required_skills.keys())}")
-                print(f"[SKILL_GAP]   User has: {list(user_skills_dict.keys())}")
-            
-            result.append(RecommendationResponse(
-                career_id=rec['id'],
-                title=rec['title'],
-                description=rec['description'],
-                similarity_score=rec['similarity_score'],
-                domain=rec.get('domain', 'Unknown'),
-                salary_range=rec.get('salary_range', 'N/A'),
-                required_skills=career_skills_list,
-                skill_gaps=skill_gaps
-            ))
-        
-        return result
+
+        return AssessResponse(
+            profile=ProfileResponse(**profile),
+            cluster=cluster_payload,
+            recommendations=recommendations
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -302,7 +517,6 @@ async def get_visualization_data(request: VisualizationRequest):
     """Get 2D and 3D coordinates for visualization."""
     try:
         user_vector = np.array(request.combined_vector).reshape(1, -1)
-        user_dim = user_vector.shape[1]
         
         # Check if models are trained
         if embedding_reducer.pca_2d is None or embedding_reducer.umap_3d is None:
@@ -310,129 +524,38 @@ async def get_visualization_data(request: VisualizationRequest):
                 status_code=503,
                 detail="Visualization models not trained. Please run train_models.py first."
             )
+
+        if not visualization_cache.get("ready"):
+            build_visualization_cache()
         
         # Get user coordinates (user vector is 20D, models expect 20D)
         user_2d = embedding_reducer.transform_2d(user_vector)[0].tolist()
         user_3d = embedding_reducer.transform_3d(user_vector)[0].tolist()
-        
-        # For career vectors, we need to create 20D vectors that match user vector structure
-        # Career embeddings are 400D (384D text + 6D RIASEC + 10D skills)
-        # User vectors are 20D (6D RIASEC + 10D skills + 4D subjects)
-        # We'll extract RIASEC + skills from career and add dummy subjects
-        careers_2d = []
-        careers_3d = []
-        
-        for career in careers_data:
-            career_embedding = np.array(career.get('embedding', []))
-            if len(career_embedding) == 0:
-                continue
-            
-            # Career embedding structure: [384D text, 6D RIASEC, 10D skills]
-            # Extract RIASEC (last 16 elements: 6D RIASEC + 10D skills)
-            # Then add 4D subjects (zeros or from career data if available)
-            if len(career_embedding) >= 16:
-                # Extract RIASEC + skills from the end of embedding
-                riasec_skills = career_embedding[-16:]  # Last 16: 6D RIASEC + 10D skills
-                # Add subjects (4D) - use zeros or career subject preferences if available
-                subjects = np.array([0.0, 0.0, 0.0, 0.0])  # Default to zeros
-                career_vector = np.concatenate([riasec_skills, subjects]).reshape(1, -1)
-            elif len(career_embedding) == user_dim:
-                # Already the right size
-                career_vector = career_embedding.reshape(1, -1)
-            else:
-                # Fallback: pad or truncate
-                if len(career_embedding) < user_dim:
-                    career_vector = np.pad(career_embedding, (0, user_dim - len(career_embedding)), 'constant').reshape(1, -1)
-                else:
-                    career_vector = career_embedding[:user_dim].reshape(1, -1)
-            
-            try:
-                career_2d = embedding_reducer.transform_2d(career_vector)[0].tolist()
-                career_3d = embedding_reducer.transform_3d(career_vector)[0].tolist()
-                careers_2d.append(career_2d)
-                careers_3d.append(career_3d)
-            except Exception as e:
-                # Skip this career if transformation fails
-                print(f"Warning: Could not transform career {career.get('title', 'unknown')}: {e}")
-                continue
-        
-        # Get cluster centers if available
-        clusters_2d = None
-        clusters_3d = None
-        try:
-            algo = clusterer.get_active_algorithm()
-            if algo == 'kmeans_plus' or algo == 'kmeans':
-                active_model = clusterer.kmeans_plus
-            elif algo == 'kmeans_random':
-                active_model = clusterer.kmeans_random
-            else:
-                active_model = None
-            if active_model is not None:
-                cluster_centers = clusterer.get_cluster_centers()
-                clusters_2d = embedding_reducer.transform_2d(cluster_centers).tolist()
-                clusters_3d = embedding_reducer.transform_3d(cluster_centers).tolist()
-        except Exception as e:
-            print(f"Warning: Could not transform cluster centers: {e}")
-            pass
-        
-        # Get student data for cluster membership visualization
-        students_2d = None
-        students_3d = None
-        student_clusters = None
-        try:
-            if len(students_data) > 0:
-                student_vectors = np.array([s.get('combined_vector', []) for s in students_data if 'combined_vector' in s])
-                algo = clusterer.get_active_algorithm()
-                if algo == 'kmeans_plus' or algo == 'kmeans':
-                    active_model = clusterer.kmeans_plus
-                elif algo == 'kmeans_random':
-                    active_model = clusterer.kmeans_random
-                else:
-                    active_model = None
-                
-                if len(student_vectors) > 0 and active_model is not None:
-                    students_2d = embedding_reducer.transform_2d(student_vectors).tolist()
-                    students_3d = embedding_reducer.transform_3d(student_vectors).tolist()
-                    if algo == 'kmeans_plus' or algo == 'kmeans':
-                        student_clusters = clusterer.kmeans_plus.predict(student_vectors).tolist()
-                    elif algo == 'kmeans_random':
-                        student_clusters = clusterer.kmeans_random.predict(student_vectors).tolist()
-                    else:
-                        student_clusters = None
-        except Exception as e:
-            print(f"Warning: Could not transform student data: {e}")
-            pass
-        
-        # Get career titles and recommended career indices
-        career_titles = [c.get('title', f'Career {i+1}') for i, c in enumerate(careers_data)]
+
+        careers_2d = visualization_cache.get("careers_2d", [])
+        careers_3d = visualization_cache.get("careers_3d", [])
+        clusters_2d = visualization_cache.get("clusters_2d")
+        clusters_3d = visualization_cache.get("clusters_3d")
+        students_2d = visualization_cache.get("students_2d")
+        students_3d = visualization_cache.get("students_3d")
+        student_clusters = visualization_cache.get("student_clusters")
+        career_titles = visualization_cache.get("career_titles", [])
+        career_ids = visualization_cache.get("career_ids", [])
+
         recommended_career_indices = None
         if request.recommended_career_ids:
             print(f"[VISUALIZE] Looking for {len(request.recommended_career_ids)} recommended career IDs: {request.recommended_career_ids}")
-            print(f"[VISUALIZE] Career data has {len(careers_data)} careers")
+            print(f"[VISUALIZE] Cached career data has {len(career_ids)} careers")
             
-            # Try to match career IDs - handle both string and numeric IDs
+            requested_ids = set(str(req_id) for req_id in request.recommended_career_ids)
             recommended_career_indices = []
-            for i, career in enumerate(careers_data):
-                career_id = career.get('id')
-                # Convert to string for comparison
-                career_id_str = str(career_id) if career_id is not None else None
-                
-                # Check if this career's ID matches any of the requested IDs
-                for req_id in request.recommended_career_ids:
-                    req_id_str = str(req_id)
-                    # Try exact match first
-                    if career_id_str == req_id_str:
-                        recommended_career_indices.append(i)
-                        print(f"[VISUALIZE] Matched career '{career.get('title')}' (index {i}) with ID {req_id_str}")
-                        break
-                    # Also try comparing the original values
-                    elif career_id == req_id:
-                        recommended_career_indices.append(i)
-                        print(f"[VISUALIZE] Matched career '{career.get('title')}' (index {i}) with ID {req_id}")
-                        break
+            for i, career_id_str in enumerate(career_ids):
+                if career_id_str is not None and career_id_str in requested_ids:
+                    recommended_career_indices.append(i)
+                    print(f"[VISUALIZE] Matched career '{career_titles[i]}' (index {i}) with ID {career_id_str}")
             
             if len(recommended_career_indices) == 0:
-                print(f"[VISUALIZE] ⚠️ WARNING: No career IDs matched! Available career IDs: {[str(c.get('id', 'NO_ID')) for c in careers_data[:5]]}")
+                print(f"[VISUALIZE] WARNING: No career IDs matched! Available career IDs: {career_ids[:5]}")
             else:
                 print(f"[VISUALIZE] ✓ Found {len(recommended_career_indices)} matching careers at indices: {recommended_career_indices}")
         

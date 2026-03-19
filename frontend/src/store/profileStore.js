@@ -14,6 +14,8 @@ const useProfileStore = create(
   recommendations: null,
   cluster: null,
   visualization: null,
+  loadingVisualization: false,
+  visualizationError: null,
   loading: false,
   loadingStep: 0, // Track current step in progress (0-5)
   error: null,
@@ -25,6 +27,8 @@ const useProfileStore = create(
       recommendations: null,
       cluster: null,
       visualization: null,
+      loadingVisualization: false,
+      visualizationError: null,
       error: null,
       loadingStep: 0,
     });
@@ -102,7 +106,9 @@ const useProfileStore = create(
         profile: response.data.profile,
         recommendations: response.data.recommendations,
         cluster: response.data.cluster,
-        visualization: response.data.visualization,
+        visualization: response.data.visualization || null,
+        loadingVisualization: false,
+        visualizationError: null,
         loading: false,
         loadingStep: 6, // Mark as complete
       });
@@ -118,6 +124,42 @@ const useProfileStore = create(
     } finally {
       clearInterval(progressInterval);
       timers.forEach((timer) => clearTimeout(timer));
+    }
+  },
+
+  fetchVisualization: async () => {
+    const { profile, recommendations, visualization } = get();
+
+    if (!profile?.combined_vector || visualization) {
+      return { success: true, skipped: true };
+    }
+
+    set({ loadingVisualization: true, visualizationError: null });
+
+    try {
+      const response = await axios.post(`${API_URL}/assessment/visualize-public`, {
+        combined_vector: profile.combined_vector,
+        recommended_career_ids: (recommendations || []).map((r) => r.career_id),
+      });
+
+      set({
+        visualization: response.data?.visualization || null,
+        loadingVisualization: false,
+        visualizationError: null,
+      });
+
+      return { success: true };
+    } catch (error) {
+      set({
+        loadingVisualization: false,
+        visualizationError:
+          error.response?.data?.error || 'Failed to load visualization data',
+      });
+
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to load visualization data',
+      };
     }
   },
 
